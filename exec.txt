@@ -1,10 +1,12 @@
-Exec ./p1
-Exec ./programa1 I=20 D=5
-Exec ./prog_11 
-Exec ./p123 PR=5
-Exec ./oimiguel 
-Exec ./p2 PR=0 
-Exec ./p3 I=30 D=10
-Exec ./p4 PR=7
-Exec ./p5 PR=3
-Exec ./p6 
+Exec bomdia
+Exec programa1 I=20 D=5
+Exec prog_11 I=23 D=4 
+Exec p1 PR=5
+Exec boatarde
+Exec p2 PR=0 
+Exec ALOBRASIL I=30 D=10
+Exec p3 PR=7
+Exec p4 PR=3
+Exec p5 PR=0
+Exec p6 PR=5
+Exec boanoite
