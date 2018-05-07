@@ -13,26 +13,96 @@
 #define EVER ;;
 #define TAM 200
 
+struct fila{
+	char *nomeDoPrograma;
+	int prioridade;
+	int segundos;
+	int duracao;
+	
+	FIla *prox;
+
+} typedef Fila;
+
+void inserirRR(Fila *p, char* nome){
+	Fila *novo = (Fila *)malloc(sizeof(Fila));
+	Fila *b;
+
+	novo->nomeDoPrograma = nome;
+
+	for(b = p; b->prox != NULL; b = b->prox);
+	b->prox = novo;
+}
+
+int inserirRT(Fila *p, int seg, int dur, char* nome){
+	Fila *novo = (Fila *)malloc(sizeof(Fila));
+	Fila *b;
+	if(seg+dur > 60){
+		printf("Tempo de duração do processo é maior que 60 segundos\n");
+		return -1;	
+	} else if(){
+	}
+	novo->nomeDoPrograma = nome;
+	novo->segundos = seg;
+	novo->duracao = dur;
+	
+	for(b = p; b->prox != NULL; b = b->prox){
+		if( (b->segundos <= seg 	      && (b->duracao + b->segundos) >= seg) ||
+		    (b->segundos <= (seg + dur) && (b->duracao + b->segundos) >= (seg + dur)) ) // se o tempo inicial OU o tempo final estiver no intervalo, cancela o programa
+			return -1;
+	}
+	b->prox = novo;
+
+	return 0;
+}
+
+void inserirPR(Fila *p, int prio, char* nome){
+	Fila *novo = (Fila *)malloc(sizeof(Fila));
+	Fila *b, *aux;
+
+	novo->nomeDoPrograma = nome;
+	novo->prioridade = prio;
+
+	for(b = p; b->prox != NULL; b = b->prox){
+		if(b->prioridade > prio){
+			novo->prox = b;	
+			return;	
+		}
+		else if(b->prox->prioridade > prio){
+			aux = b->prox;
+			b->prox = novo;
+			novo->prox = aux;
+			return;		
+		}
+	}
+	b->prox = novo;
+}
+
 int main()
 {
-
+	Fila *filaRR, *filaRT, *filaPR;
 	int i = 0, aux = 0;						// auxiliares
 	int s = 0, d = 0, pol = 0;						// parametros para o escalonador
  	int prio = 0;									// 1 para REAL TIME, 2 para Prioridade, 0 para ROUND-ROBIN
 	char parametro[TAM], nomeDoPrograma[TAM];		// buff de texto do arquivo 
 	char character;									// buff de character do arquivo
 	FILE *lista;									// arquivo "exec.txt"
-	int shdPrio, shdS, shdD, shdPol, shdPronto;
+	int shdPrio, shdS, shdD, shdPol, shdPronto, shdNome;
 	int *segundos, *duracao, *prioridade, *politica, *pronto;
+	char *nome;
+	char *filaRT[TAM];
+	char *filaRR[TAM];
+	char *filaPR[TAM];
+	int fimRT, fimRR;
 
 
 	shdPrio = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
 	shdS = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
 	shdD = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
 	shdPol = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
+	shdNome = shmget(IPC_PRIVATE, TAM*sizeof(char), IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
 	shdPronto = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
 
-
+	nome = (char *)shmat(shdNome, 0, 0);
 	pronto = (int *) shmat(shdPronto, 0, 0);
 	prioridade = (int *) shmat(shdPrio, 0, 0);
 	politica = (int *) shmat(shdPol, 0, 0);
@@ -67,7 +137,7 @@ int main()
 			}
 			else if (character == '\n') 
 			{	//printf("%d", *pronto);
-				
+				nome = nomeDoPrograma;
 				*prioridade = prio;
 				*politica = pol; // O valor padrão é ROUND-ROBIN, ou seja, se não identificar nenhuma politica na linha de comando, ele vai passar como ROUND-ROBIN.
 				*segundos = s;
@@ -83,6 +153,9 @@ int main()
 				aux = 0;
 				i = 0;
 				pol = 0;
+				s = 0;
+				d = 0;
+				prio = 0;
 
 			}
 			else 
@@ -113,6 +186,19 @@ int main()
 	{	
 		for(EVER){
 			if(*pronto == 1){
+				//inserirRR(Fila *p, int prio, int seg, int dur, char* nome)
+				if(*politica == 0) // ROUND-ROBIN
+				{
+					inserirRR(filaRR, nome);	
+				}
+				else if(*politica == 1) // REAL-TIME
+				{
+					inserirRT(filaRT, *segundos, *duracao, nome);
+				}
+				else // PRIORIDADE
+				{
+					inserirPR(filaRT, *prioridade, nome);
+				}
 				*pronto = 0;
 				puts("Alterado!");		
 			}
