@@ -30,6 +30,7 @@ void inserirRR(Fila *p, char* nome){
 	novo->nomeDoPrograma = nome;
 
 	for(b = p; b->prox != NULL; b = b->prox);
+
 	b->prox = novo;
 }
 
@@ -39,8 +40,8 @@ int inserirRT(Fila *p, int seg, int dur, char* nome){
 	if(seg+dur > 60){
 		printf("Tempo de duração do processo é maior que 60 segundos\n");
 		return -1;	
-	} else if(){
 	}
+
 	novo->nomeDoPrograma = nome;
 	novo->segundos = seg;
 	novo->duracao = dur;
@@ -75,6 +76,14 @@ void inserirPR(Fila *p, int prio, char* nome){
 		}
 	}
 	b->prox = novo;
+}
+
+void removePrimeiro(Fila *p)
+{
+	Lista* aux = p;
+	p = p->prox;
+
+	free(aux);
 }
 
 int main()
