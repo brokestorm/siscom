@@ -36,46 +36,74 @@ void inserirRR(Fila *p, char* nome){
 
 int inserirRT(Fila *p, int seg, int dur, char* nome){
 	Fila *novo = (Fila *)malloc(sizeof(Fila));
-	Fila *b;
-	if(seg+dur > 60){
+	Fila *b, *aux;
+
+	if(seg+dur > 60)
+	{
 		printf("Tempo de duração do processo é maior que 60 segundos\n");
-		return -1;	
+		return 1;	
 	}
 
 	novo->nomeDoPrograma = nome;
 	novo->segundos = seg;
 	novo->duracao = dur;
-	
-	for(b = p; b->prox != NULL; b = b->prox){
-		if( (b->segundos <= seg 	      && (b->duracao + b->segundos) >= seg) ||
-		    (b->segundos <= (seg + dur) && (b->duracao + b->segundos) >= (seg + dur)) ) // se o tempo inicial OU o tempo final estiver no intervalo, cancela o programa
-			return -1;
-	}
-	b->prox = novo;
 
-	return 0;
+	// Tentando encaixar o novo processo entre os já existentes
+	for(b = p; b->prox != NULL; b = b->prox)
+	{
+		tempoFinalAtual = b->segundos + b->duracao;
+		tempoFinalNovo = seg + dur;
+
+		if( tempoFinalAtual < tempoFinalNovo < b->prox->segundos )
+		{
+			aux = b->prox;
+			b->prox = novo;
+			novo->prox = aux;
+			return 0;
+		}
+	}
+
+	// Caso não tenha conseguido encaixar, é pq ele conflitava com algum processo existente da fila
+	return 1;
 }
 
-void inserirPR(Fila *p, int prio, char* nome){
+int inserirPR(Fila *p, int prio, char* nome){
 	Fila *novo = (Fila *)malloc(sizeof(Fila));
 	Fila *b, *aux;
 
 	novo->nomeDoPrograma = nome;
 	novo->prioridade = prio;
 
-	for(b = p; b->prox != NULL; b = b->prox){
-		if(b->prioridade > prio){
-			novo->prox = b;	
-			return;	
-		}
-		else if(b->prox->prioridade > prio){
+	// Caso o processo a ser inserido tenha maior prioridade de todas
+	if(p->prioridade > prio)
+	{
+		novo->prox = p;
+		p = novo;	
+		return 0;	
+	}
+
+	// Caso esteja no meio (entre maior e menor prioridades), procura seu lugar na fila
+	for(b = p; b->prox != NULL; b = b->prox)
+	{
+		if(b->prox->prioridade > prio)
+		{
 			aux = b->prox;
 			b->prox = novo;
 			novo->prox = aux;
-			return;		
+			return 0;		
 		}
 	}
-	b->prox = novo;
+
+	// Caso tenha a pior prioridade da fila, apenas vai para o final
+	if(b->prox == NULL && b->prioridade < prio)
+	{
+		novo->prox = NULL:
+		b->prox = novo;
+		return 0;
+	}
+
+	// Se tudo der errado...
+	return 1;
 }
 
 void removePrimeiro(Fila *p)
