@@ -13,7 +13,8 @@
 #define EVER ;;
 #define TAM 200
 
-struct fila{
+struct fila
+{
 	char *nomeDoPrograma;
 	int prioridade;
 	int segundos;
@@ -23,7 +24,8 @@ struct fila{
 
 } typedef Fila;
 
-void inserirRR(Fila *p, char* nome){
+void inserirRR(Fila *p, char* nome)
+{
 	Fila *novo = (Fila *)malloc(sizeof(Fila));
 	Fila *b;
 
@@ -34,14 +36,17 @@ void inserirRR(Fila *p, char* nome){
 	b->prox = novo;
 }
 
-int inserirRT(Fila *p, int seg, int dur, char* nome){
+int inserirRT(Fila *p, int seg, int dur, char* nome)
+{
 	Fila *novo = (Fila *)malloc(sizeof(Fila));
 	Fila *b, *aux;
+
 
 	if(seg+dur > 60)
 	{
 		printf("Tempo de duração do processo é maior que 60 segundos\n");
 		return 1;	
+
 	}
 
 	novo->nomeDoPrograma = nome;
@@ -67,7 +72,9 @@ int inserirRT(Fila *p, int seg, int dur, char* nome){
 	return 1;
 }
 
-int inserirPR(Fila *p, int prio, char* nome){
+int inserirPR(Fila *p, int prio, char* nome)
+{
+
 	Fila *novo = (Fila *)malloc(sizeof(Fila));
 	Fila *b, *aux;
 
@@ -173,14 +180,14 @@ int main()
 				}
 			}
 			else if (character == '\n') 
-			{	//printf("%d", *pronto);
+			{
 				nome = nomeDoPrograma;
 				*prioridade = prio;
 				*politica = pol; // O valor padrão é ROUND-ROBIN, ou seja, se não identificar nenhuma politica na linha de comando, ele vai passar como ROUND-ROBIN.
 				*segundos = s;
 				*duracao = d;
 				*pronto = 1;
-				//printf("%d", *pronto);
+
 				sleep(1);
 				
 				fseek(lista, 5, SEEK_CUR); // Pulando o "Exec "
@@ -223,7 +230,6 @@ int main()
 	{	
 		for(EVER){
 			if(*pronto == 1){
-				//inserirRR(Fila *p, int prio, int seg, int dur, char* nome)
 				if(*politica == 0) // ROUND-ROBIN
 				{
 					inserirRR(filaRR, nome);	
@@ -234,10 +240,10 @@ int main()
 				}
 				else // PRIORIDADE
 				{
-					inserirPR(filaRT, *prioridade, nome);
+					inserirPR(filaPR, *prioridade, nome);
 				}
 				*pronto = 0;
-				puts("Alterado!");		
+				puts("Alterado!");
 			}
 		}
 	}
