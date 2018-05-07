@@ -23,17 +23,26 @@ int main()
 			printf("Ocorreu um erro ao criar um novo arquivo\n");
 			exit(1);
 		}
-		for (EVER) {
+
+		fseek(lista, 5, SEEK_SET);
+
+		for (EVER) 
+		{
 			fscanf(lista, "%c", &character); // lendo cada character do arquivo de texto
-			if (aux == 0) {
+			if (aux == 0) 
+			{
 				nomeDoPrograma[i] = character; // salvando o nome do programa
-				if (i >= 1) {
-					if (nomeDoPrograma[i - 1] == "." && nomeDoPrograma[i] == "c" || nomeDoPrograma[i - 1] == "." && nomeDoPrograma[i] == "C") {
-						aux = i; // isso indica que o nome do programa terminou de ser lido
+				
+				if (i >= 1) 
+				{
+					if (nomeDoPrograma[i] == ' ') 
+					{
+						aux++; // isso indica que o nome do programa terminou de ser lido
 					}
 				}
 			}
-			else if (character == '\n') {
+			else if (character == '\n') 
+			{
 				sleep(1);
 				// TRANSMITIR DADOS PARA O ESCALONADOR AQUI
 				
@@ -45,28 +54,33 @@ int main()
 				politica = 0;
 
 			}
-			else {
+			else 
+			{
 				i = 0; // agora usando i para indexar o vetor "parametro"
 				parametro[i] = character;
-				if (parametro[i] == '=') { 
-					if (parametro[i - 1] == 'I') { // parametro de segundos
+
+				if (parametro[i] == '=') 
+				{ 
+					if (parametro[i - 1] == 'I') 
+					{ // parametro de segundos
 						politica = 1; // REAL TIME
 						fscanf(lista, "%d", &segundo);
 					}
-					else if (parametro[i - 1] == 'D') { 
+					else if (parametro[i - 1] == 'D') 
+					{ 
 						politica = 1; // REAL TIME (desnecessario?)
 						fscanf(lista, "%d", &duracao);
 					}
-					else if (parametro[i - 1] == 'R') { 
+					else if (parametro[i - 1] == 'R') 
+					{ 
 						politica = 2; // prioridade
 						fscanf(lista, "%d", &prioridade);
 					}
+				}
 			}
-			
 			i++;
 		}
-	}
-	fclose(lista);
+		fclose(lista);
 	}
 	//else // Escalonador
 	//{
