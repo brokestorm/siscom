@@ -20,7 +20,7 @@ struct fila
 	int segundos;
 	int duracao;
 	
-	FIla *prox;
+	struct fila *prox;
 
 } typedef Fila;
 
@@ -40,7 +40,8 @@ int inserirRT(Fila *p, int seg, int dur, char* nome)
 {
 	Fila *novo = (Fila *)malloc(sizeof(Fila));
 	Fila *b, *aux;
-
+	int tempoFinalAtual;
+	int tempoFinalNovo;
 
 	if(seg+dur > 60)
 	{
@@ -59,7 +60,7 @@ int inserirRT(Fila *p, int seg, int dur, char* nome)
 		tempoFinalAtual = b->segundos + b->duracao;
 		tempoFinalNovo = seg + dur;
 
-		if( tempoFinalAtual < tempoFinalNovo < b->prox->segundos )
+		if( (tempoFinalAtual < tempoFinalNovo) && (tempoFinalNovo < b->prox->segundos) )
 		{
 			aux = b->prox;
 			b->prox = novo;
@@ -104,7 +105,7 @@ int inserirPR(Fila *p, int prio, char* nome)
 	// Caso tenha a pior prioridade da fila, apenas vai para o final
 	if(b->prox == NULL && b->prioridade < prio)
 	{
-		novo->prox = NULL:
+		novo->prox = NULL;
 		b->prox = novo;
 		return 0;
 	}
@@ -115,7 +116,7 @@ int inserirPR(Fila *p, int prio, char* nome)
 
 void removePrimeiro(Fila *p)
 {
-	Lista* aux = p;
+	Fila* aux = p;
 	p = p->prox;
 
 	free(aux);
@@ -123,21 +124,16 @@ void removePrimeiro(Fila *p)
 
 int main()
 {
-	Fila *filaRR, *filaRT, *filaPR;
+	Fila *filaRR = NULL, *filaRT = NULL, *filaPR = NULL;
 	int i = 0, aux = 0;						// auxiliares
 	int s = 0, d = 0, pol = 0;						// parametros para o escalonador
  	int prio = 0;									// 1 para REAL TIME, 2 para Prioridade, 0 para ROUND-ROBIN
 	char parametro[TAM], nomeDoPrograma[TAM];		// buff de texto do arquivo 
 	char character;									// buff de character do arquivo
 	FILE *lista;									// arquivo "exec.txt"
-	int shdPrio, shdS, shdD, shdPol, shdPronto, shdNome;
+	int shdPrio, shdS, shdD, shdPol, shdPronto, shdNome, status;
 	int *segundos, *duracao, *prioridade, *politica, *pronto;
 	char *nome;
-	char *filaRT[TAM];
-	char *filaRR[TAM];
-	char *filaPR[TAM];
-	int fimRT, fimRR;
-
 
 	shdPrio = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
 	shdS = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
@@ -167,8 +163,8 @@ int main()
 		fseek(lista, 5, SEEK_SET); // Pulando o "Exec "
 		
 		while (fscanf(lista, "%c", &character) != EOF) 
-		{	
-			printf("%c", character);
+		{	printf("Valor do pronto: %d\n", *pronto);
+			//printf("%c", character);
 			if (aux == 0 && character != '\n') 
 			{
 				nomeDoPrograma[i] = character; // salvando o nome do programa
@@ -243,11 +239,13 @@ int main()
 					inserirPR(filaPR, *prioridade, nome);
 				}
 				*pronto = 0;
-				puts("Alterado!");
+				//puts("Alterado!");
+				printf("Alterado!");
 			}
 		}
 	}
-
+	
+	waitpid(-1, &status, 0);
 	// libera a memória compartilhada do processo
 	shmdt (prioridade); 
 	shmdt (segundos); 
