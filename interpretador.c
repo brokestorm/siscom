@@ -13,36 +13,67 @@
 #define EVER ;;
 #define TAM 200
 
-struct fila
+struct no
 {
 	char *nomeDoPrograma;
 	int prioridade;
 	int segundos;
 	int duracao;
 	int pid;
+	int taVazia;   // Esse elemento é um pouco gambiarrento, ele está aqui apenas para a primeira entrada de elemento
 	
-	struct fila *prox;
+	struct no *prox;
 
+} typedef No;
+
+
+struct fila
+{
+	No inicial;
+	No final;
+	int size;
 } typedef Fila;
+
+
+Fila* criaFila()
+{
+	Fila *p = (Fila*) malloc(sizeof(Fila));
+	if( p == NULL)
+	{
+		return NULL;
+	}
+
+	p->inical = NULL;
+	p->final = NULL;
+	size = 0;
+
+	return p;
+}
 
 int inserirRR(Fila *p, char* nome)
 {
-	Fila *novo = (Fila *)malloc(sizeof(Fila));
+	No *novo = (No *)malloc(sizeof(No));
 	Fila *b;
 
 	novo->nomeDoPrograma = nome;
+	novo->prox = NULL;
 
 	// Se a fila está vazia
-	if(p ==NULL)
+	if(p->size == 0)
 	{
-		p = novo;
+		p->inicial = novo;
+		p->final = novo;
+		p->size++;
 		return 0;
 	}
-	// Caso contrário vai para o final e insere
-	for(b = p; b->prox != NULL; b = b->prox);
+	else
+	{
+		p->final = novo;
+		p->size++;
+		return 0;
+	}
 
-	b->prox = novo;
-	return 0;
+	return 1;
 }
 
 int inserirRT(Fila *p, int seg, int dur, char* nome)
@@ -62,9 +93,10 @@ int inserirRT(Fila *p, int seg, int dur, char* nome)
 	novo->nomeDoPrograma = nome;
 	novo->segundos = seg;
 	novo->duracao = dur;
+	novo->taVazia = 0;
 	
 	// Se a fila está vazia
-	if(p == NULL)
+	if(p->taVazia)
 	{
 		p = novo;
 		return 0;
@@ -98,9 +130,10 @@ int inserirPR(Fila *p, int prio, char* nome)
 
 	novo->nomeDoPrograma = nome;
 	novo->prioridade = prio;
+	novo->taVazia = 0;
 
 	// Se a fila está vazia
-	if(p == NULL)
+	if(p->taVazia)
 	{
 		p = novo;
 		return 0;
@@ -110,7 +143,7 @@ int inserirPR(Fila *p, int prio, char* nome)
 	if(p->prioridade > prio)
 	{
 		novo->prox = p;
-		p = novo;	
+		p = novo;
 		return 0;	
 	}
 
@@ -148,7 +181,7 @@ void removePrimeiro(Fila *p)
 
 int main()
 {
-	Fila *filaRR = NULL, *filaRT = NULL, *filaPR = NULL;
+	Fila *filaRR = criaFila(), *filaRT = criaFila(), *filaPR = criaFila();
 
 	int i = 0, j = 0, aux = 0;												// auxiliares
 	int s = 0, d = 0, pol = 0;										// parametros para o escalonador
@@ -164,20 +197,24 @@ int main()
 	int shdPrio, shdS, shdD, shdPol, shdPronto, shdNome;
 	int *segundos, *duracao, *prioridade, *politica, *pronto;
 	char *nome;
+
 	int iniTime;
 	time_t now;
-    	struct tm *tm;
+	struct tm *tm;
 
-    	now = time(0);
-    	if ((tm = localtime (&now)) == NULL) {
-       		printf ("Error extracting time stuff\n");
-        	return 1;
-    	}
+	now = time(0);
+	if ((tm = localtime (&now)) == NULL) 
+	{
+   		printf ("Error extracting time stuff\n");
+    	return 1;
+	}
 
-    	printf ("Current time: %04d-%02d-%02d %02d:%02d:%02d\n",
-        tm->tm_year+1900, tm->tm_mon+1, tm->tm_mday,
-        tm->tm_hour, tm->tm_min, tm->tm_sec);
+	printf ("Current time: %04d-%02d-%02d %02d:%02d:%02d\n",
+    		tm->tm_year+1900, tm->tm_mon+1, tm->tm_mday,
+    		tm->tm_hour, tm->tm_min, tm->tm_sec);
+
 	iniTime = tm->tm_sec;
+
 	printf("Initial seconds: %ds\n", iniTime);
 
 	shdPrio = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
@@ -283,32 +320,13 @@ int main()
 	else 
 	{	
 		int timeBuffer = tm->tm_sec, pid;
-		int currentTime;
 		char *arg;
-		
+
 		for(EVER)
 		{
-			currentTime = tm->tm_sec;
-			if(timeBuffer < currentTime)// PQ ISSO NAO FUNCIONA?????????????????????????????????????
-			{
-				timeBuffer = tm->tm_sec; 
-				printf("Current timeBuffer: %d", timeBuffer);
+			time(&now);
+			tm = localtime(&now);
 
-				if(filaPR != NULL)
-				{	printf("programa %s executado!", (const char*)filaPR->nomeDoPrograma);
-					pid = fork();
-					if(pid != 0)
-					{
-						filaRT->pid = pid;
-						execv((const char*)filaRT->nomeDoPrograma, &arg);
-						
-					}
-				}
-				//else if(filaRR != NULL)
-				//{
-
-				//}
-			}
 			// Caso exista, adiciona processos nas respectivas filas
 			if(*pronto == 1)
 			{
@@ -326,10 +344,29 @@ int main()
 				{	
 					printf("Sou PR\n");
 					inserirPR(filaPR, *prioridade, nome);
+					printf("Duro: %d\n", filaPR->duracao);
 				}
 				*pronto = 0;
 				printf("Alterado!\n");
 
+			}
+
+			if(timeBuffer < tm->tm_sec)
+			{
+				if(filaRT != NULL)
+				{	
+					//printf("programa %s executado!\n", filaRT->nomeDoPrograma);
+					pid = fork();
+					if(pid != 0)
+					{
+						filaRT->pid = pid;
+						execv(filaRT->nomeDoPrograma, &arg);
+					}
+				}
+				//else if(filaRR != NULL)
+				//{
+
+				//}
 			}
 
 			//if(filaRT != NULL)
