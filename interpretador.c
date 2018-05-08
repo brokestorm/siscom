@@ -148,7 +148,6 @@ int inserirRT(Fila *p, int seg, int dur, char* nome)
 // PR é uma fila, onde só removemos o primeiro, porém é possível inserir em qualquer ponto
 int inserirPR(Fila *p, int prio, char* nome)
 {
-
 	No *novo = (No *)malloc(sizeof(No));
 	No *b, *aux;
 
@@ -211,14 +210,14 @@ void removePrimeiro(Fila *p)
 
 int minorCompareTime(struct tm *a, struct tm *b)
 {
-	if(a->min < b->min)
+	if(a->tm_min < b->tm_min)
 		return 0; 
-	else if(a->min > b->min)
+	else if(a->tm_min > b->tm_min)
 		return 1;
 	else
-	{	if(a->sec < b->sec)
+	{	if(a->tm_sec < b->tm_sec)
 			return 0;
-		else if(a->sec > b->sec)
+		else if(a->tm_sec > b->tm_sec)
 			return 1;
 		else
 			return 1;
@@ -228,14 +227,14 @@ int minorCompareTime(struct tm *a, struct tm *b)
 
 int equalCompareTime(struct tm *a, struct tm *b)
 {
-	if(a->min < b->min)
+	if(a->tm_min < b->tm_min)
 		return 1; 
-	else if(a->min > b->min)
+	else if(a->tm_min > b->tm_min)
 		return 1;
 	else
-	{	if(a->sec < b->sec)
+	{	if(a->tm_sec < b->tm_sec)
 			return 1;
-		else if(a->sec > b->sec)
+		else if(a->tm_sec > b->tm_sec)
 			return 1;
 		else
 			return 0;
@@ -248,9 +247,9 @@ int setTime(int sec1, int sec2, struct tm *a)
 	a->tm_year = 0;
 	a->tm_mon = 0;
 	a->tm_mday = 0;
-    	a->tm_hour; = 0;
-    	a->tm_min = (sec1 + sec2) / 60;
-    	a->tm_sec = (sec1 + sec2) % 60;
+   	a->tm_hour = 0;
+	a->tm_min = (sec1 + sec2) / 60;
+	a->tm_sec = (sec1 + sec2) % 60;
 }
 
 int main()
@@ -418,7 +417,6 @@ int main()
 				{	
 					printf("Sou PR\n");
 					inserirPR(filaPR, *prioridade, nome);
-					printf("Duro: %d\n", filaPR->duracao);
 				}
 				*pronto = 0;
 				printf("Alterado!\n");
@@ -438,12 +436,12 @@ int main()
 				}
 				else if(filaPR != NULL)
 				{	
-					printf("programa vai ser %s executado!\n", filaPR->nomeDoPrograma);
+					printf("programa vai ser %s executado!\n", filaPR->inicial->nomeDoPrograma);
 					pid = fork();
 					if(pid != 0)
 					{
 						filaPR->pid = pid;
-						execv(filaPR->nomeDoPrograma, &arg);
+						execv(filaPR->inicial->nomeDoPrograma, &arg);
 					}
 				} 
 				else if(filaRR != NULL)
@@ -453,7 +451,7 @@ int main()
 					if(pid != 0)
 					{
 						filaRR->pid = pid;
-						execv(filaRR->nomeDoPrograma, &arg);
+						execv(filaRR->inicial->nomeDoPrograma, &arg);
 					}
 
 				}
