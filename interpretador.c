@@ -9,7 +9,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <sys/wait.h>
-
+#include <time.h>
 #define EVER ;;
 #define TAM 200
 
@@ -19,29 +19,38 @@ struct fila
 	int prioridade;
 	int segundos;
 	int duracao;
+	int pid;
 	
 	struct fila *prox;
 
 } typedef Fila;
 
-void inserirRR(Fila *p, char* nome)
+int inserirRR(Fila *p, char* nome)
 {
 	Fila *novo = (Fila *)malloc(sizeof(Fila));
 	Fila *b;
 
 	novo->nomeDoPrograma = nome;
 
+	// Se a fila está vazia
+	if(p ==NULL)
+	{
+		p = novo;
+		return 0;
+	}
+	// Caso contrário vai para o final e insere
 	for(b = p; b->prox != NULL; b = b->prox);
 
 	b->prox = novo;
+	return 0;
 }
 
 int inserirRT(Fila *p, int seg, int dur, char* nome)
 {
 	Fila *novo = (Fila *)malloc(sizeof(Fila));
 	Fila *b, *aux;
-	int tempoFinalAtual;
-	int tempoFinalNovo;
+	int tempoFinalAtual, tempoFinalNovo;
+
 
 	if(seg+dur > 60)
 	{
@@ -53,6 +62,13 @@ int inserirRT(Fila *p, int seg, int dur, char* nome)
 	novo->nomeDoPrograma = nome;
 	novo->segundos = seg;
 	novo->duracao = dur;
+	
+	// Se a fila está vazia
+	if(p == NULL)
+	{
+		p = novo;
+		return 0;
+	}
 
 	// Tentando encaixar o novo processo entre os já existentes
 	for(b = p; b->prox != NULL; b = b->prox)
@@ -61,6 +77,7 @@ int inserirRT(Fila *p, int seg, int dur, char* nome)
 		tempoFinalNovo = seg + dur;
 
 		if( (tempoFinalAtual < tempoFinalNovo) && (tempoFinalNovo < b->prox->segundos) )
+
 		{
 			aux = b->prox;
 			b->prox = novo;
@@ -81,6 +98,13 @@ int inserirPR(Fila *p, int prio, char* nome)
 
 	novo->nomeDoPrograma = nome;
 	novo->prioridade = prio;
+
+	// Se a fila está vazia
+	if(p == NULL)
+	{
+		p = novo;
+		return 0;
+	}
 
 	// Caso o processo a ser inserido tenha maior prioridade de todas
 	if(p->prioridade > prio)
@@ -125,15 +149,36 @@ void removePrimeiro(Fila *p)
 int main()
 {
 	Fila *filaRR = NULL, *filaRT = NULL, *filaPR = NULL;
-	int i = 0, aux = 0;						// auxiliares
-	int s = 0, d = 0, pol = 0;						// parametros para o escalonador
- 	int prio = 0;									// 1 para REAL TIME, 2 para Prioridade, 0 para ROUND-ROBIN
-	char parametro[TAM], nomeDoPrograma[TAM];		// buff de texto do arquivo 
-	char character;									// buff de character do arquivo
-	FILE *lista;									// arquivo "exec.txt"
-	int shdPrio, shdS, shdD, shdPol, shdPronto, shdNome, status;
+
+	int i = 0, j = 0, aux = 0;												// auxiliares
+	int s = 0, d = 0, pol = 0;										// parametros para o escalonador
+ 	int prio = 0;		
+											// 1 para REAL TIME, 2 para Prioridade, 0 para ROUND-ROBIN
+	char parametro[TAM], nomeDoPrograma[TAM], *nomeAux;				// buff de texto do arquivo 
+	char diretorioDosProgramas[] = "./";
+	char character;													// buff de character do arquivo
+	int tamanhoDoNome, status;
+
+	FILE *lista;		
+											// arquivo "exec.txt"
+	int shdPrio, shdS, shdD, shdPol, shdPronto, shdNome;
 	int *segundos, *duracao, *prioridade, *politica, *pronto;
 	char *nome;
+	int iniTime;
+	time_t now;
+    	struct tm *tm;
+
+    	now = time(0);
+    	if ((tm = localtime (&now)) == NULL) {
+       		printf ("Error extracting time stuff\n");
+        	return 1;
+    	}
+
+    	printf ("Current time: %04d-%02d-%02d %02d:%02d:%02d\n",
+        tm->tm_year+1900, tm->tm_mon+1, tm->tm_mday,
+        tm->tm_hour, tm->tm_min, tm->tm_sec);
+	iniTime = tm->tm_sec;
+	printf("Initial seconds: %ds\n", iniTime);
 
 	shdPrio = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
 	shdS = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
@@ -150,9 +195,10 @@ int main()
 	duracao = (int *) shmat(shdD, 0, 0);
 	
 	*pronto = 0;
-	if (fork() != 0) // Interpretador de comandos
+
+	/********** INTERPRETADOR **********/
+	if (fork() != 0)
 	{	
-		
 		lista = fopen("exec.txt", "r");
 		if (lista == NULL) // verificando erros
 		{
@@ -163,7 +209,7 @@ int main()
 		fseek(lista, 5, SEEK_SET); // Pulando o "Exec "
 		
 		while (fscanf(lista, "%c", &character) != EOF) 
-		{	printf("Valor do pronto: %d\n", *pronto);
+		{	
 			//printf("%c", character);
 			if (aux == 0 && character != '\n') 
 			{
@@ -172,12 +218,22 @@ int main()
 				if (nomeDoPrograma[i] == ' ')
 				{
 					aux++; // isso indica que o nome do programa terminou de ser lido
+					tamanhoDoNome = i;
 					i = 0;
 				}
 			}
 			else if (character == '\n') 
 			{
-				nome = nomeDoPrograma;
+				
+				nomeAux = (char*) malloc(2+(tamanhoDoNome*sizeof(char)));
+				strcpy(nomeAux, diretorioDosProgramas); // Colocando o diretorio no nome
+
+				for(j = 0; j < tamanhoDoNome; j++)
+				{
+					nomeAux[2+j] = nomeDoPrograma[j]; // Colacando o nome logo após o diretorio "./"
+				}
+
+				nome = nomeAux; // Ja enviando o nome com o diretório
 				*prioridade = prio;
 				*politica = pol; // O valor padrão é ROUND-ROBIN, ou seja, se não identificar nenhuma politica na linha de comando, ele vai passar como ROUND-ROBIN.
 				*segundos = s;
@@ -190,8 +246,9 @@ int main()
 
 
 				// resetando variaveis....
+				memset(nomeDoPrograma, 0, sizeof(nomeDoPrograma)); // Esvaziando a variável do nome
 				aux = 0;
-				i = 0;
+				i = -1;
 				pol = 0;
 				s = 0;
 				d = 0;
@@ -222,26 +279,73 @@ int main()
 		}
 		fclose(lista);
 	}
+	/********** ESCALONADOR **********/
 	else 
 	{	
-		for(EVER){
-			if(*pronto == 1){
+		int timeBuffer = tm->tm_sec, pid;
+		int currentTime;
+		char *arg;
+		
+		for(EVER)
+		{
+			currentTime = tm->tm_sec;
+			if(timeBuffer < currentTime)// PQ ISSO NAO FUNCIONA?????????????????????????????????????
+			{
+				timeBuffer = tm->tm_sec; 
+				printf("Current timeBuffer: %d", timeBuffer);
+
+				if(filaPR != NULL)
+				{	printf("programa %s executado!", (const char*)filaPR->nomeDoPrograma);
+					pid = fork();
+					if(pid != 0)
+					{
+						filaRT->pid = pid;
+						execv((const char*)filaRT->nomeDoPrograma, &arg);
+						
+					}
+				}
+				//else if(filaRR != NULL)
+				//{
+
+				//}
+			}
+			// Caso exista, adiciona processos nas respectivas filas
+			if(*pronto == 1)
+			{
 				if(*politica == 0) // ROUND-ROBIN
 				{
+					printf("Sou RR\n");
 					inserirRR(filaRR, nome);	
 				}
 				else if(*politica == 1) // REAL-TIME
 				{
+					printf("Sou RT\n");
 					inserirRT(filaRT, *segundos, *duracao, nome);
 				}
 				else // PRIORIDADE
-				{
+				{	
+					printf("Sou PR\n");
 					inserirPR(filaPR, *prioridade, nome);
 				}
 				*pronto = 0;
-				//puts("Alterado!");
-				printf("Alterado!");
+				printf("Alterado!\n");
+
 			}
+
+			//if(filaRT != NULL)
+			//{
+			//	pid = fork();
+			//	if(pid != 0)
+			//	{
+			//		filaRT->pid = pid;
+			//		//execv(filaRT->nomeDoPrograma, &arg);
+			//	}
+			//}
+			//else
+			
+			
+			
+
 		}
 	}
 	
