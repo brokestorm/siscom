@@ -9,7 +9,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <sys/wait.h>
-
+#include <time.h>
 #define EVER ;;
 #define TAM 200
 
@@ -51,6 +51,7 @@ int inserirRT(Fila *p, int seg, int dur, char* nome)
 	Fila *b, *aux;
 	int tempoFinalAtual, tempoFinalNovo;
 
+
 	if(seg+dur > 60)
 	{
 		printf("Tempo de duração do processo é maior que 60 segundos\n");
@@ -75,7 +76,8 @@ int inserirRT(Fila *p, int seg, int dur, char* nome)
 		tempoFinalAtual = b->segundos + b->duracao;
 		tempoFinalNovo = seg + dur;
 
-		if( tempoFinalAtual < tempoFinalNovo && tempoFinalNovo < b->prox->segundos )
+		if( (tempoFinalAtual < tempoFinalNovo) && (tempoFinalNovo < b->prox->segundos) )
+
 		{
 			aux = b->prox;
 			b->prox = novo;
@@ -150,19 +152,33 @@ int main()
 
 	int i = 0, j = 0, aux = 0;												// auxiliares
 	int s = 0, d = 0, pol = 0;										// parametros para o escalonador
- 	int prio = 0;													// 1 para REAL TIME, 2 para Prioridade, 0 para ROUND-ROBIN
-
+ 	int prio = 0;		
+											// 1 para REAL TIME, 2 para Prioridade, 0 para ROUND-ROBIN
 	char parametro[TAM], nomeDoPrograma[TAM], *nomeAux;				// buff de texto do arquivo 
 	char diretorioDosProgramas[] = "./";
 	char character;													// buff de character do arquivo
-	int tamanhoDoNome;
+	int tamanhoDoNome, status;
 
-	FILE *lista;													// arquivo "exec.txt"
-
+	FILE *lista;		
+											// arquivo "exec.txt"
 	int shdPrio, shdS, shdD, shdPol, shdPronto, shdNome;
 	int *segundos, *duracao, *prioridade, *politica, *pronto;
 	char *nome;
-	
+	int iniTime;
+	time_t now;
+    	struct tm *tm;
+
+    	now = time(0);
+    	if ((tm = localtime (&now)) == NULL) {
+       		printf ("Error extracting time stuff\n");
+        	return 1;
+    	}
+
+    	printf ("Current time: %04d-%02d-%02d %02d:%02d:%02d\n",
+        tm->tm_year+1900, tm->tm_mon+1, tm->tm_mday,
+        tm->tm_hour, tm->tm_min, tm->tm_sec);
+	iniTime = tm->tm_sec;
+	printf("Initial seconds: %ds\n", iniTime);
 
 	shdPrio = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
 	shdS = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
@@ -208,6 +224,7 @@ int main()
 			}
 			else if (character == '\n') 
 			{
+				
 				nomeAux = (char*) malloc(2+(tamanhoDoNome*sizeof(char)));
 				strcpy(nomeAux, diretorioDosProgramas); // Colocando o diretorio no nome
 
@@ -265,11 +282,33 @@ int main()
 	/********** ESCALONADOR **********/
 	else 
 	{	
-		int pid;
-		char arg;
-
+		int timeBuffer = tm->tm_sec, pid;
+		int currentTime;
+		char *arg;
+		
 		for(EVER)
 		{
+			currentTime = tm->tm_sec;
+			if(timeBuffer < currentTime)// PQ ISSO NAO FUNCIONA?????????????????????????????????????
+			{
+				timeBuffer = tm->tm_sec; 
+				printf("Current timeBuffer: %d", timeBuffer);
+
+				if(filaPR != NULL)
+				{	printf("programa %s executado!", (const char*)filaPR->nomeDoPrograma);
+					pid = fork();
+					if(pid != 0)
+					{
+						filaRT->pid = pid;
+						execv((const char*)filaRT->nomeDoPrograma, &arg);
+						
+					}
+				}
+				//else if(filaRR != NULL)
+				//{
+
+				//}
+			}
 			// Caso exista, adiciona processos nas respectivas filas
 			if(*pronto == 1)
 			{
@@ -284,38 +323,33 @@ int main()
 					inserirRT(filaRT, *segundos, *duracao, nome);
 				}
 				else // PRIORIDADE
-				{
+				{	
+					printf("Sou PR\n");
 					inserirPR(filaPR, *prioridade, nome);
 				}
 				*pronto = 0;
 				printf("Alterado!\n");
-			}
-
-			if(filaRT != NULL)
-			{
-				pid = fork();
-				if(pid != 0)
-				{
-					filaRT->pid = pid;
-					//execv(filaRT->nomeDoPrograma, &arg);
-				}
-			}
-			else if(filaPR != NULL)
-			{
 
 			}
-			else if(filaRR != NULL)
-			{
 
-			}
-			else
-			{
-				//printf("Não há processos para executar no momento!\n");
-			}
+			//if(filaRT != NULL)
+			//{
+			//	pid = fork();
+			//	if(pid != 0)
+			//	{
+			//		filaRT->pid = pid;
+			//		//execv(filaRT->nomeDoPrograma, &arg);
+			//	}
+			//}
+			//else
+			
+			
+			
 
 		}
 	}
-
+	
+	waitpid(-1, &status, 0);
 	// libera a memória compartilhada do processo
 	shmdt (prioridade); 
 	shmdt (segundos); 
