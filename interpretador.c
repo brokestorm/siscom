@@ -29,8 +29,8 @@ struct no
 
 struct fila
 {
-	No inicial;
-	No final;
+	No *inicial;
+	No *final;
 	int size;
 } typedef Fila;
 
@@ -43,17 +43,18 @@ Fila* criaFila()
 		return NULL;
 	}
 
-	p->inical = NULL;
+	p->inicial = NULL;
 	p->final = NULL;
-	size = 0;
+	p->size = 0;
 
 	return p;
 }
 
+
+// Round Robin funciona como uma fila normal, apenas insere no final e remove no primeiro
 int inserirRR(Fila *p, char* nome)
 {
-	No *novo = (No *)malloc(sizeof(No));
-	Fila *b;
+	No *novo = (No*) malloc(sizeof(No));
 
 	novo->nomeDoPrograma = nome;
 	novo->prox = NULL;
@@ -76,44 +77,66 @@ int inserirRR(Fila *p, char* nome)
 	return 1;
 }
 
+// RT vamos modelar como uma fila circular, já que RT cicla pelos processos pra sempre. E é possivel inserir em qualquer lugar da fila
 int inserirRT(Fila *p, int seg, int dur, char* nome)
 {
-	Fila *novo = (Fila *)malloc(sizeof(Fila));
-	Fila *b, *aux;
+	No *novo = (No *)malloc(sizeof(No));
+	No *b, *aux;
 	int tempoFinalAtual, tempoFinalNovo;
 
 
 	if(seg+dur > 60)
 	{
-		printf("Tempo de duração do processo é maior que 60 segundos\n");
+		printf("Tempo de duração do processo %s é maior que 60 segundos\n", nome);
 		return 1;	
-
 	}
 
 	novo->nomeDoPrograma = nome;
 	novo->segundos = seg;
 	novo->duracao = dur;
-	novo->taVazia = 0;
 	
 	// Se a fila está vazia
-	if(p->taVazia)
+	if(p->size == 0)
 	{
-		p = novo;
+		novo->prox = novo;
+		p->inicial = novo;
+		p->final = novo;
+		p->size++;
 		return 0;
 	}
 
-	// Tentando encaixar o novo processo entre os já existentes
-	for(b = p; b->prox != NULL; b = b->prox)
+	tempoFinalNovo = seg + dur;
+
+	// Se o processo novo roda antes do primeiro da fila
+	if(tempoFinalNovo < p->inicial->segundos) 
+	{
+		novo->prox = p->inicial;
+		p->inicial = novo;
+		p->final->prox = novo;
+		p->size++;
+		return 0;
+	}
+	
+	// Se o processo novo roda depois do ultimo da fila
+	if(novo->segundos > (p->final->segundos + p->final->duracao) )
+	{
+		novo->prox = p->inicial;
+		p->final->prox = novo;
+		p->final = novo;
+		p->size++;
+		return 0;
+	}
+	// Se o processo novo esta no meio da fila
+	for(b = p->inicial->prox; b->prox != p->final; b = b->prox)
 	{
 		tempoFinalAtual = b->segundos + b->duracao;
-		tempoFinalNovo = seg + dur;
-
+	
 		if( (tempoFinalAtual < tempoFinalNovo) && (tempoFinalNovo < b->prox->segundos) )
-
 		{
 			aux = b->prox;
 			b->prox = novo;
 			novo->prox = aux;
+			p->size++;
 			return 0;
 		}
 	}
@@ -122,59 +145,66 @@ int inserirRT(Fila *p, int seg, int dur, char* nome)
 	return 1;
 }
 
+// PR é uma fila, onde só removemos o primeiro, porém é possível inserir em qualquer ponto
 int inserirPR(Fila *p, int prio, char* nome)
 {
 
-	Fila *novo = (Fila *)malloc(sizeof(Fila));
-	Fila *b, *aux;
+	No *novo = (No *)malloc(sizeof(No));
+	No *b, *aux;
 
 	novo->nomeDoPrograma = nome;
 	novo->prioridade = prio;
-	novo->taVazia = 0;
 
 	// Se a fila está vazia
-	if(p->taVazia)
+	if(p->size == 0)
 	{
-		p = novo;
+		novo->prox = novo;
+		p->inicial = novo;
+		p->final = novo;
+		p->size++;
 		return 0;
 	}
 
-	// Caso o processo a ser inserido tenha maior prioridade de todas
-	if(p->prioridade > prio)
+	// Caso o processo a ser inserido tenha a melhor prioridade de todas
+	if(novo->prioridade < p->inicial->prioridade)
 	{
-		novo->prox = p;
-		p = novo;
+		novo->prox = p->inicial;
+		p->inicial = novo;
+		p->size++;
 		return 0;	
 	}
 
-	// Caso esteja no meio (entre maior e menor prioridades), procura seu lugar na fila
-	for(b = p; b->prox != NULL; b = b->prox)
+	// Caso o processo a ser inserido tenha a pior prioridade de todas
+	if(novo->prioridade >= p->final->prioridade)
 	{
-		if(b->prox->prioridade > prio)
+		p->final->prox = novo;
+		novo->prox = NULL;
+		p->size++;
+		return 0;
+	}
+
+	// Caso esteja no meio (entre maior e menor prioridades), procura seu lugar na fila
+	for(b = p->inicial; b->prox != p->final; b = b->prox)
+	{
+		if(b->prox->prioridade > novo->prioridade)
 		{
 			aux = b->prox;
 			b->prox = novo;
 			novo->prox = aux;
+			p->size++;
 			return 0;		
 		}
 	}
 
-	// Caso tenha a pior prioridade da fila, apenas vai para o final
-	if(b->prox == NULL && b->prioridade < prio)
-	{
-		novo->prox = NULL;
-		b->prox = novo;
-		return 0;
-	}
-
+	
 	// Se tudo der errado...
 	return 1;
 }
 
 void removePrimeiro(Fila *p)
 {
-	Fila* aux = p;
-	p = p->prox;
+	No* aux = p->inicial;
+	p->inicial = p->inicial->prox;
 
 	free(aux);
 }
