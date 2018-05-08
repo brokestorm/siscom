@@ -179,17 +179,61 @@ void removePrimeiro(Fila *p)
 	free(aux);
 }
 
+int minorCompareTime(struct tm *a, struct tm *b)
+{
+	if(a->min < b->min)
+		return 0; 
+	else if(a->min > b->min)
+		return 1;
+	else
+	{	if(a->sec < b->sec)
+			return 0;
+		else if(a->sec > b->sec)
+			return 1;
+		else
+			return 1;
+		
+	}
+}
+
+int equalCompareTime(struct tm *a, struct tm *b)
+{
+	if(a->min < b->min)
+		return 1; 
+	else if(a->min > b->min)
+		return 1;
+	else
+	{	if(a->sec < b->sec)
+			return 1;
+		else if(a->sec > b->sec)
+			return 1;
+		else
+			return 0;
+		
+	}
+}
+
+int setTime(int sec1, int sec2, struct tm *a)
+{
+	a->tm_year = 0;
+	a->tm_mon = 0;
+	a->tm_mday = 0;
+    	a->tm_hour; = 0;
+    	a->tm_min = (sec1 + sec2) / 60;
+    	a->tm_sec = (sec1 + sec2) % 60;
+}
+
 int main()
 {
 	Fila *filaRR = criaFila(), *filaRT = criaFila(), *filaPR = criaFila();
 
-	int i = 0, j = 0, aux = 0;												// auxiliares
-	int s = 0, d = 0, pol = 0;										// parametros para o escalonador
+	int i = 0, j = 0, aux = 0;									// auxiliares
+	int s = 0, d = 0, pol = 0;									// parametros para o escalonador
  	int prio = 0;		
-											// 1 para REAL TIME, 2 para Prioridade, 0 para ROUND-ROBIN
+															// 1 para REAL TIME, 2 para Prioridade, 0 para ROUND-ROBIN
 	char parametro[TAM], nomeDoPrograma[TAM], *nomeAux;				// buff de texto do arquivo 
 	char diretorioDosProgramas[] = "./";
-	char character;													// buff de character do arquivo
+	char character;											// buff de character do arquivo
 	int tamanhoDoNome, status;
 
 	FILE *lista;		
@@ -201,17 +245,16 @@ int main()
 	int iniTime;
 	time_t now;
 	struct tm *tm;
+	struct tm *tv;
 
 	now = time(0);
 	if ((tm = localtime (&now)) == NULL) 
 	{
    		printf ("Error extracting time stuff\n");
-    	return 1;
+    		return 1;
 	}
 
-	printf ("Current time: %04d-%02d-%02d %02d:%02d:%02d\n",
-    		tm->tm_year+1900, tm->tm_mon+1, tm->tm_mday,
-    		tm->tm_hour, tm->tm_min, tm->tm_sec);
+	printf ("Current time: %04d-%02d-%02d %02d:%02d:%02d\n", tm->tm_year+1900, tm->tm_mon+1, tm->tm_mday, tm->tm_hour, tm->tm_min, tm->tm_sec);
 
 	iniTime = tm->tm_sec;
 
@@ -261,7 +304,6 @@ int main()
 			}
 			else if (character == '\n') 
 			{
-				
 				nomeAux = (char*) malloc(2+(tamanhoDoNome*sizeof(char)));
 				strcpy(nomeAux, diretorioDosProgramas); // Colocando o diretorio no nome
 
@@ -269,7 +311,7 @@ int main()
 				{
 					nomeAux[2+j] = nomeDoPrograma[j]; // Colacando o nome logo após o diretorio "./"
 				}
-
+				
 				nome = nomeAux; // Ja enviando o nome com o diretório
 				*prioridade = prio;
 				*politica = pol; // O valor padrão é ROUND-ROBIN, ou seja, se não identificar nenhuma politica na linha de comando, ele vai passar como ROUND-ROBIN.
@@ -281,7 +323,6 @@ int main()
 				
 				fseek(lista, 5, SEEK_CUR); // Pulando o "Exec "
 
-
 				// resetando variaveis....
 				memset(nomeDoPrograma, 0, sizeof(nomeDoPrograma)); // Esvaziando a variável do nome
 				aux = 0;
@@ -290,7 +331,6 @@ int main()
 				s = 0;
 				d = 0;
 				prio = 0;
-
 			}
 			else 
 			{ 
@@ -316,11 +356,15 @@ int main()
 		}
 		fclose(lista);
 	}
+	
 	/********** ESCALONADOR **********/
 	else 
 	{	
 		int timeBuffer = tm->tm_sec, pid;
 		char *arg;
+		int RTisExecuting;
+		int PRisExecuting;
+		int RRisExecuting;
 
 		for(EVER)
 		{
@@ -330,17 +374,17 @@ int main()
 			// Caso exista, adiciona processos nas respectivas filas
 			if(*pronto == 1)
 			{
-				if(*politica == 0) // ROUND-ROBIN
+				if(*politica == 0) 			// ROUND-ROBIN
 				{
 					printf("Sou RR\n");
 					inserirRR(filaRR, nome);	
 				}
-				else if(*politica == 1) // REAL-TIME
+				else if(*politica == 1) 		// REAL-TIME
 				{
 					printf("Sou RT\n");
 					inserirRT(filaRT, *segundos, *duracao, nome);
 				}
-				else // PRIORIDADE
+				else 					// PRIORIDADE
 				{	
 					printf("Sou PR\n");
 					inserirPR(filaPR, *prioridade, nome);
@@ -351,42 +395,44 @@ int main()
 
 			}
 
-			if(timeBuffer < tm->tm_sec)
+			if(timeBuffer != tm->tm_sec)
 			{
-				if(filaRT != NULL)
+				timeBuffer = tm->tm_sec;
+				if(filaRT != NULL){ // NEEDS OTHER CONDITIONS!!!!!!!!
+			//		pid = fork();
+			//		if(pid != 0)
+			//		{
+			//			filaRT->pid = pid;
+			//			//execv(filaRT->nomeDoPrograma, &arg);
+			//		}
+				}
+				else if(filaPR != NULL)
 				{	
-					//printf("programa %s executado!\n", filaRT->nomeDoPrograma);
+					printf("programa vai ser %s executado!\n", filaPR->nomeDoPrograma);
 					pid = fork();
 					if(pid != 0)
 					{
-						filaRT->pid = pid;
-						execv(filaRT->nomeDoPrograma, &arg);
+						filaPR->pid = pid;
+						execv(filaPR->nomeDoPrograma, &arg);
 					}
+				} 
+				else if(filaRR != NULL)
+				{
+					printf("programa vai ser %s executado!\n", filaRR->nomeDoPrograma);
+					pid = fork();
+					if(pid != 0)
+					{
+						filaRR->pid = pid;
+						execv(filaRR->nomeDoPrograma, &arg);
+					}
+
 				}
-				//else if(filaRR != NULL)
-				//{
-
-				//}
 			}
-
-			//if(filaRT != NULL)
-			//{
-			//	pid = fork();
-			//	if(pid != 0)
-			//	{
-			//		filaRT->pid = pid;
-			//		//execv(filaRT->nomeDoPrograma, &arg);
-			//	}
-			//}
-			//else
-			
-			
-			
-
 		}
 	}
 	
 	waitpid(-1, &status, 0);
+	
 	// libera a memória compartilhada do processo
 	shmdt (prioridade); 
 	shmdt (segundos); 
