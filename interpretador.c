@@ -20,7 +20,6 @@ struct no
 	int segundos;
 	int duracao;
 	int pid;
-	int taVazia;   // Esse elemento é um pouco gambiarrento, ele está aqui apenas para a primeira entrada de elemento
 	
 	struct no *prox;
 
@@ -391,10 +390,13 @@ int main()
 	else 
 	{	
 		int timeBuffer = tm->tm_sec, pid;
+		int timeline = 0;
 		char *arg;
 		int RTisExecuting;
 		int PRisExecuting;
 		int RRisExecuting;
+
+		int timeRTEnters;
 
 		for(EVER)
 		{
@@ -424,9 +426,18 @@ int main()
 
 			}
 
+
+
+
 			if(timeBuffer != tm->tm_sec)
 			{
 				timeBuffer = tm->tm_sec;
+				timeline++;
+
+				if(tm->tm_sec == iniTime){
+					timeline = 0;
+				}
+
 				if(filaRT->size != 0){ // NEEDS OTHER CONDITIONS!!!!!!!!
 			//		pid = fork();
 			//		if(pid != 0)
