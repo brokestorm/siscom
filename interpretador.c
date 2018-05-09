@@ -4,14 +4,16 @@
 
 #include <sys/shm.h>
 #include <sys/ipc.h>
-#include<sys/stat.h>
+#include <sys/stat.h>
 
 #include <unistd.h>
 #include <signal.h>
 #include <sys/wait.h>
 #include <time.h>
+
 #define EVER ;;
 #define TAM 200
+#define QUANTUM 1
 
 struct no
 {
@@ -20,6 +22,7 @@ struct no
 	int segundos;
 	int duracao;
 	int pid;
+	int count;
 	
 	struct no *prox;
 
@@ -51,12 +54,13 @@ Fila* criaFila()
 
 
 // Round Robin funciona como uma fila normal, apenas insere no final e remove no primeiro
-int inserirRR(Fila *p, char* nome)
+int inserirRR(Fila *p, char* nome, int count)
 {
 	No *novo = (No*) malloc(sizeof(No));
 
 	novo->nomeDoPrograma = nome;
 	novo->prox = NULL;
+	novo->count = count;
 
 	// Se a fila está vazia
 	if(p->size == 0)
@@ -77,7 +81,7 @@ int inserirRR(Fila *p, char* nome)
 }
 
 // RT vamos modelar como uma fila circular, já que RT cicla pelos processos pra sempre. E é possivel inserir em qualquer lugar da fila
-int inserirRT(Fila *p, int seg, int dur, char* nome)
+No* inserirRT(Fila *p, int seg, int dur, char* nome)
 {
 	No *novo = (No *)malloc(sizeof(No));
 	No *b, *aux;
@@ -87,12 +91,13 @@ int inserirRT(Fila *p, int seg, int dur, char* nome)
 	if(seg+dur > 60)
 	{
 		printf("Tempo de duração do processo %s é maior que 60 segundos\n", nome);
-		return 1;	
+		return NULL;	
 	}
 
 	novo->nomeDoPrograma = nome;
 	novo->segundos = seg;
 	novo->duracao = dur;
+	novo->count = 0;
 	
 	// Se a fila está vazia
 	if(p->size == 0)
@@ -101,7 +106,7 @@ int inserirRT(Fila *p, int seg, int dur, char* nome)
 		p->inicial = novo;
 		p->final = novo;
 		p->size++;
-		return 0;
+		return novo;
 	}
 
 	tempoFinalNovo = seg + dur;
@@ -113,7 +118,7 @@ int inserirRT(Fila *p, int seg, int dur, char* nome)
 		p->inicial = novo;
 		p->final->prox = novo;
 		p->size++;
-		return 0;
+		return novo;
 	}
 	
 	// Se o processo novo roda depois do ultimo da fila
@@ -123,7 +128,7 @@ int inserirRT(Fila *p, int seg, int dur, char* nome)
 		p->final->prox = novo;
 		p->final = novo;
 		p->size++;
-		return 0;
+		return novo;
 	}
 	// Se o processo novo esta no meio da fila
 	for(b = p->inicial->prox; b->prox != p->final; b = b->prox)
@@ -136,13 +141,14 @@ int inserirRT(Fila *p, int seg, int dur, char* nome)
 			b->prox = novo;
 			novo->prox = aux;
 			p->size++;
-			return 0;
+			return novo;
 		}
 	}
 
 	// Caso não tenha conseguido encaixar, é pq ele conflitava com algum processo existente da fila
-	return 1;
+	return NULL;
 }
+
 
 // PR é uma fila, onde só removemos o primeiro, porém é possível inserir em qualquer ponto
 int inserirPR(Fila *p, int prio, char* nome)
@@ -208,49 +214,6 @@ void removePrimeiro(Fila *p)
 	free(aux);
 }
 
-int minorCompareTime(struct tm *a, struct tm *b)
-{
-	if(a->tm_min < b->tm_min)
-		return 0; 
-	else if(a->tm_min > b->tm_min)
-		return 1;
-	else
-	{	if(a->tm_sec < b->tm_sec)
-			return 0;
-		else if(a->tm_sec > b->tm_sec)
-			return 1;
-		else
-			return 1;
-		
-	}
-}
-
-int equalCompareTime(struct tm *a, struct tm *b)
-{
-	if(a->tm_min < b->tm_min)
-		return 1; 
-	else if(a->tm_min > b->tm_min)
-		return 1;
-	else
-	{	if(a->tm_sec < b->tm_sec)
-			return 1;
-		else if(a->tm_sec > b->tm_sec)
-			return 1;
-		else
-			return 0;
-		
-	}
-}
-
-void setTime(int sec1, int sec2, struct tm *a)
-{
-	a->tm_year = 0;
-	a->tm_mon = 0;
-	a->tm_mday = 0;
-   	a->tm_hour = 0;
-	a->tm_min = (sec1 + sec2) / 60;
-	a->tm_sec = (sec1 + sec2) % 60;
-}
 
 int main()
 {
@@ -260,10 +223,10 @@ int main()
 	int s = 0, d = 0, pol = 0;									// parametros para o escalonador
  	int prio = 0;		
 															// 1 para REAL TIME, 2 para Prioridade, 0 para ROUND-ROBIN
-	char parametro[TAM], nomeDoPrograma[TAM], *nomeAux;				// buff de texto do arquivo 
-	char diretorioDosProgramas[] = "./";
+	char parametro[TAM], nomeDoPrograma[TAM];				// buff de texto do arquivo 
 	char character;											// buff de character do arquivo
-	int tamanhoDoNome, status;
+	int tamanhoDoNome;
+	//int status;
 
 	FILE *lista;		
 											// arquivo "exec.txt"
@@ -274,7 +237,6 @@ int main()
 	int iniTime;
 	time_t now;
 	struct tm *tm;
-	struct tm *tv;
 
 	now = time(0);
 	if ((tm = localtime (&now)) == NULL) 
@@ -286,8 +248,6 @@ int main()
 	printf ("Current time: %04d-%02d-%02d %02d:%02d:%02d\n", tm->tm_year+1900, tm->tm_mon+1, tm->tm_mday, tm->tm_hour, tm->tm_min, tm->tm_sec);
 
 	iniTime = tm->tm_sec;
-
-	printf("Initial seconds: %ds\n", iniTime);
 
 	shdPrio = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
 	shdS = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
@@ -314,9 +274,8 @@ int main()
 			printf("Ocorreu um erro ao abrir o arquivo\n");
 			exit(1);
 		}
-		
-		fseek(lista, 5, SEEK_SET); // Pulando o "Exec "
-		
+
+		fscanf(lista, "Exec ");		
 		while (fscanf(lista, "%c", &character) != EOF) 
 		{	
 			//printf("%c", character);
@@ -328,20 +287,28 @@ int main()
 				{
 					aux++; // isso indica que o nome do programa terminou de ser lido
 					tamanhoDoNome = i;
+					nomeDoPrograma[i+1] = '\0';
 					i = 0;
+					printf("tamanho= %d\n", tamanhoDoNome);
 				}
 			}
-			else if (character == '\n') 
+			else if (character == '\n' && aux == 1) 
 			{
-				nomeAux = (char*) malloc(2+(tamanhoDoNome*sizeof(char)));
-				strcpy(nomeAux, diretorioDosProgramas); // Colocando o diretorio no nome
-
-				for(j = 0; j < tamanhoDoNome; j++)
+				memset(nome, 0, TAM*sizeof(char)); // Esvaziando a variável do nome
+				//nomeAux = (char*) malloc(((3+tamanhoDoNome)*sizeof(char)));
+				nome[0] = '.';
+				nome[1] = '/';
+	
+				for(j = 0; nomeDoPrograma[j] != '\0'; j++)
 				{
-					nomeAux[2+j] = nomeDoPrograma[j]; // Colacando o nome logo após o diretorio "./"
+					nome[2+j] = nomeDoPrograma[j]; // Colacando o nome logo após o diretorio "./"
 				}
+				//nomeAux[2+tamanhoDoNome] = '\0'; 
 				
-				nome = nomeAux; // Ja enviando o nome com o diretório
+				//nome = nomeAux; // Ja enviando o nome com o diretório
+				
+				printf("Nome enviado: %s, tamanho: %d\n", nome, tamanhoDoNome);
+				
 				*prioridade = prio;
 				*politica = pol; // O valor padrão é ROUND-ROBIN, ou seja, se não identificar nenhuma politica na linha de comando, ele vai passar como ROUND-ROBIN.
 				*segundos = s;
@@ -349,8 +316,8 @@ int main()
 				*pronto = 1;
 
 				sleep(1);
-				
-				fseek(lista, 5, SEEK_CUR); // Pulando o "Exec "
+				fscanf(lista, "Exec ");	
+				//fseek(lista, 5, SEEK_CUR); // Pulando o "Exec "
 
 				// resetando variaveis....
 				memset(nomeDoPrograma, 0, sizeof(nomeDoPrograma)); // Esvaziando a variável do nome
@@ -392,11 +359,13 @@ int main()
 		int timeBuffer = tm->tm_sec, pid;
 		int timeline = 0;
 		char *arg;
-		int RTisExecuting;
-		int PRisExecuting;
-		int RRisExecuting;
-
-		int timeRTEnters;
+		int RTisExecuting = 0;
+		int PRisExecuting = 0;
+		int RRisExecuting = 0;
+		int sinceLastPreemp = 0;
+		No *RTAtual = NULL;
+		No *RTAux = NULL;
+		int timeForNextRT = 60;
 
 		for(EVER)
 		{
@@ -406,78 +375,167 @@ int main()
 			// Caso exista, adiciona processos nas respectivas filas
 			if(*pronto == 1)
 			{
+			
+				printf("Nome recebido %s\n", nome);
 				if(*politica == 0) 			// ROUND-ROBIN
 				{
-					printf("Sou RR\n");
-					inserirRR(filaRR, nome);	
+					inserirRR(filaRR, nome, 0);	
 				}
 				else if(*politica == 1) 		// REAL-TIME
 				{
-					printf("Sou RT\n");
-					inserirRT(filaRT, *segundos, *duracao, nome);
+					RTAux = inserirRT(filaRT, *segundos, *duracao, nome);
+					if(RTAux != NULL)
+					{
+					 	if(*segundos >= timeline && *segundos < timeForNextRT)
+					 	{
+							timeForNextRT = *segundos;
+							RTAtual = RTAux;
+						}
+					}
+					
 				}
 				else 					// PRIORIDADE
 				{	
-					printf("Sou PR\n");
 					inserirPR(filaPR, *prioridade, nome);
 				}
 				*pronto = 0;
-				printf("Alterado!\n");
 
 			}
-
-
-
-
+			
+			
+			
 			if(timeBuffer != tm->tm_sec)
 			{
 				timeBuffer = tm->tm_sec;
 				timeline++;
-
+				printf("timeline = %ds\n", timeline);
 				if(tm->tm_sec == iniTime){
 					timeline = 0;
+					printf("timeline foi resetada!");
 				}
-
-				if(filaRT->size != 0){ // NEEDS OTHER CONDITIONS!!!!!!!!
-			//		pid = fork();
-			//		if(pid != 0)
-			//		{
-			//			filaRT->inicial->pid = pid;
-			//			//execv(filaRT->inicial->nomeDoPrograma, &arg);
-			//		}
-				}
-				else if(filaPR->size != 0)
-				{	
-					printf("programa vai ser %s executado!\n", filaPR->inicial->nomeDoPrograma);
-					pid = fork();
-					if(pid != 0)
-					{
-						filaPR->inicial->pid = pid;
-						execv(filaPR->inicial->nomeDoPrograma, &arg);
-					}
-				} 
-				else if(filaRR->size != 0)
+				
+				if(RTisExecuting)
 				{
-					printf("programa vai ser %s executado!\n", filaRR->inicial->nomeDoPrograma);
-					pid = fork();
-					if(pid != 0)
+					if (timeline == RTAtual->segundos + RTAtual->duracao)
 					{
-						filaRR->inicial->pid = pid;
-						execv(filaRR->inicial->nomeDoPrograma, &arg);
+						kill(RTAtual->pid, SIGSTOP);
+						RTAtual = RTAtual->prox;
+						timeForNextRT = RTAtual->segundos;
+						RTisExecuting = 0;
 					}
-
 				}
-			}
+				
+				if(timeline == timeForNextRT)
+				{
+					if(PRisExecuting){
+						kill(filaPR->inicial->pid, SIGSTOP);
+						PRisExecuting = 0;
+						}
+					else if(RRisExecuting){
+						kill(filaRR->inicial->pid, SIGSTOP);
+						RRisExecuting = 0;
+						}
+					if(filaRT->size != 0)
+					{ // NEEDS OTHER CONDITIONS!!!!!!!!
+						if(RTAtual->count > 0)
+						{
+							kill(RTAtual->pid, SIGCONT);
+							printf("O programa %s foi escalonado!\n", RTAtual->nomeDoPrograma);
+						}
+						else
+						{
+							pid = fork();
+							if(pid != 0)
+							{
+								RTAtual->pid = pid;
+								if(execv(RTAtual->nomeDoPrograma, &arg) == -1)
+									printf("Ocorreu algum erro ao executar %s!\n", RTAtual->nomeDoPrograma);
+								else
+									printf("O programa %s foi escalonado!\n", RTAtual->nomeDoPrograma);
+							}
+						}
+						RTisExecuting = 1;
+						
+					}
+				}
+				
+				if(filaPR->size != 0 && !RTisExecuting)
+				{	
+					if(RRisExecuting)
+					{
+						kill(filaRR->inicial->pid, SIGSTOP);
+						RRisExecuting = 0;
+					}
+					
+					if(!PRisExecuting)
+					{
+						if(filaPR->inicial->count > 0)
+						{
+							kill(filaPR->inicial->pid, SIGCONT);
+							printf("O programa %s foi escalonado!\n", filaPR->inicial->nomeDoPrograma);
+						}
+						else{
+							pid = fork();
+							if(pid != 0)
+							{
+								filaPR->inicial->pid = pid;
+								if(execv(filaPR->inicial->nomeDoPrograma, &arg)==-1)
+									printf("Ocorreu algum erro ao executar %s!\n", filaPR->inicial->nomeDoPrograma);
+								else
+									printf("O programa %s foi escalonado!\n", RTAtual->nomeDoPrograma);
+							}
+						}
+						PRisExecuting = 1;
+						filaPR->inicial->count++;
+						printf("O programa %s foi escalonado!\n", filaPR->inicial->nomeDoPrograma);
+					} 
+				} 
+				else if(filaRR->size != 0 && !RTisExecuting)
+				{
+					sinceLastPreemp++;
+					if(RRisExecuting && sinceLastPreemp == QUANTUM)
+					{
+						kill(filaRR->inicial->pid, SIGSTOP);
+						inserirRR(filaRR, filaRR->inicial->nomeDoPrograma, ++filaRR->inicial->count);
+						removePrimeiro(filaRR);
+						sinceLastPreemp = 0;
+						RRisExecuting = 0;
+					}
+					
+					if(!RRisExecuting)
+					{
+						if(filaRR->inicial->count > 0)
+						{
+							kill(filaRR->inicial->pid, SIGCONT);
+							printf("O programa %s foi escalonado!\n", filaRR->inicial->nomeDoPrograma);
+						}
+						else{
+							pid = fork();
+							if(pid != 0)
+							{
+								filaRR->inicial->pid = pid;
+								if(execv(filaRR->inicial->nomeDoPrograma, &arg)==-1)
+									printf("Ocorreu algum erro ao executar %s!\n", filaRR->inicial->nomeDoPrograma);
+								else
+									printf("O programa %s foi escalonado!\n", RTAtual->nomeDoPrograma);
+							}
+						}
+						RRisExecuting = 1;
+						printf("O programa %s foi escalonado!\n", filaRR->inicial->nomeDoPrograma);
+					} 
+				}
+				
+				
+			} // endif(timebuffer)
 		}
 	}
-	
-	waitpid(-1, &status, 0);
 	
 	// libera a memória compartilhada do processo
 	shmdt (prioridade); 
 	shmdt (segundos); 
 	shmdt (duracao);
 	shmdt (politica);
+	shmdt (nome);
 	shmdt (pronto); 
 
 	// libera a memória compartilhada
@@ -485,6 +543,7 @@ int main()
 	shmctl (shdPol, IPC_RMID, 0);
 	shmctl (shdS, IPC_RMID, 0);
 	shmctl (shdD, IPC_RMID, 0);
+	shmctl (shdNome, IPC_RMID, 0);
 	shmctl (shdPronto, IPC_RMID, 0);
 
 	return 0;
