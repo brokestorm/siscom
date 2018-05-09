@@ -225,8 +225,6 @@ int main()
 															// 1 para REAL TIME, 2 para Prioridade, 0 para ROUND-ROBIN
 	char parametro[TAM], nomeDoPrograma[TAM];				// buff de texto do arquivo 
 	char character;											// buff de character do arquivo
-	int tamanhoDoNome;
-	//int status;
 
 	FILE *lista;		
 											// arquivo "exec.txt"
@@ -275,39 +273,30 @@ int main()
 			exit(1);
 		}
 
-		fscanf(lista, "Exec ");		
+		fscanf(lista, "Exec ");	
+
 		while (fscanf(lista, "%c", &character) != EOF) 
 		{	
 			//printf("%c", character);
-			if (aux == 0 && character != '\n') 
+			if (aux == 0) 
 			{
 				nomeDoPrograma[i] = character; // salvando o nome do programa
-
-				if (nomeDoPrograma[i] == ' ')
+				if (nomeDoPrograma[i] == ' ' || nomeDoPrograma[i] == '\n')
 				{
 					aux++; // isso indica que o nome do programa terminou de ser lido
-					tamanhoDoNome = i;
-					nomeDoPrograma[i+1] = '\0';
+					nomeDoPrograma[i] = '\0';
 					i = 0;
-					printf("tamanho= %d\n", tamanhoDoNome);
 				}
 			}
-			else if (character == '\n' && aux == 1) 
+
+			if (character == '\n' && aux == 1) 
 			{
 				memset(nome, 0, TAM*sizeof(char)); // Esvaziando a variável do nome
-				//nomeAux = (char*) malloc(((3+tamanhoDoNome)*sizeof(char)));
-				nome[0] = '.';
-				nome[1] = '/';
 	
 				for(j = 0; nomeDoPrograma[j] != '\0'; j++)
 				{
-					nome[2+j] = nomeDoPrograma[j]; // Colacando o nome logo após o diretorio "./"
+					nome[j] = nomeDoPrograma[j]; // Colacando o nome logo após o diretorio "./"
 				}
-				//nomeAux[2+tamanhoDoNome] = '\0'; 
-				
-				//nome = nomeAux; // Ja enviando o nome com o diretório
-				
-				printf("Nome enviado: %s, tamanho: %d\n", nome, tamanhoDoNome);
 				
 				*prioridade = prio;
 				*politica = pol; // O valor padrão é ROUND-ROBIN, ou seja, se não identificar nenhuma politica na linha de comando, ele vai passar como ROUND-ROBIN.
@@ -317,7 +306,6 @@ int main()
 
 				sleep(1);
 				fscanf(lista, "Exec ");	
-				//fseek(lista, 5, SEEK_CUR); // Pulando o "Exec "
 
 				// resetando variaveis....
 				memset(nomeDoPrograma, 0, sizeof(nomeDoPrograma)); // Esvaziando a variável do nome
@@ -328,7 +316,8 @@ int main()
 				d = 0;
 				prio = 0;
 			}
-			else 
+			
+			if(character != '\n' && aux == 1)
 			{ 
 				// agora usando i para indexar o vetor "parametro"
 				parametro[i] = character;
@@ -375,10 +364,9 @@ int main()
 			// Caso exista, adiciona processos nas respectivas filas
 			if(*pronto == 1)
 			{
-			
-				printf("Nome recebido %s\n", nome);
 				if(*politica == 0) 			// ROUND-ROBIN
 				{
+					printf("Eu sou o processo %s, politica: %d\n", nome, *politica);
 					inserirRR(filaRR, nome, 0);	
 				}
 				else if(*politica == 1) 		// REAL-TIME
@@ -398,10 +386,9 @@ int main()
 				{	
 					inserirPR(filaPR, *prioridade, nome);
 				}
-				*pronto = 0;
 
+				*pronto = 0;
 			}
-			
 			
 			
 			if(timeBuffer != tm->tm_sec)
@@ -409,9 +396,10 @@ int main()
 				timeBuffer = tm->tm_sec;
 				timeline++;
 				printf("timeline = %ds\n", timeline);
-				if(tm->tm_sec == iniTime){
+				if(tm->tm_sec == iniTime)
+				{
 					timeline = 0;
-					printf("timeline foi resetada!");
+					printf("Timeline foi resetada!\n");
 				}
 				
 				if(RTisExecuting)
@@ -427,16 +415,19 @@ int main()
 				
 				if(timeline == timeForNextRT)
 				{
-					if(PRisExecuting){
+					if(PRisExecuting)
+					{
 						kill(filaPR->inicial->pid, SIGSTOP);
 						PRisExecuting = 0;
-						}
-					else if(RRisExecuting){
+					}
+					else if(RRisExecuting)
+					{
 						kill(filaRR->inicial->pid, SIGSTOP);
 						RRisExecuting = 0;
-						}
+					}
+
 					if(filaRT->size != 0)
-					{ // NEEDS OTHER CONDITIONS!!!!!!!!
+					{
 						if(RTAtual->count > 0)
 						{
 							kill(RTAtual->pid, SIGCONT);
@@ -448,14 +439,14 @@ int main()
 							if(pid != 0)
 							{
 								RTAtual->pid = pid;
-								if(execv(RTAtual->nomeDoPrograma, &arg) == -1)
+								if(execve(RTAtual->nomeDoPrograma, &arg, NULL) == -1)
 									printf("Ocorreu algum erro ao executar %s!\n", RTAtual->nomeDoPrograma);
 								else
 									printf("O programa %s foi escalonado!\n", RTAtual->nomeDoPrograma);
 							}
 						}
 						RTisExecuting = 1;
-						
+						RTAtual->count++;
 					}
 				}
 				
@@ -479,10 +470,10 @@ int main()
 							if(pid != 0)
 							{
 								filaPR->inicial->pid = pid;
-								if(execv(filaPR->inicial->nomeDoPrograma, &arg)==-1)
+								if(execve(filaPR->inicial->nomeDoPrograma, &arg, NULL)==-1)
 									printf("Ocorreu algum erro ao executar %s!\n", filaPR->inicial->nomeDoPrograma);
 								else
-									printf("O programa %s foi escalonado!\n", RTAtual->nomeDoPrograma);
+									printf("O programa %s foi escalonado!\n", filaPR->inicial->nomeDoPrograma);
 							}
 						}
 						PRisExecuting = 1;
@@ -507,17 +498,17 @@ int main()
 						if(filaRR->inicial->count > 0)
 						{
 							kill(filaRR->inicial->pid, SIGCONT);
-							printf("O programa %s foi escalonado!\n", filaRR->inicial->nomeDoPrograma);
+							printf("O programa %s foi reescalonado!\n", filaRR->inicial->nomeDoPrograma);
 						}
 						else{
 							pid = fork();
 							if(pid != 0)
 							{
 								filaRR->inicial->pid = pid;
-								if(execv(filaRR->inicial->nomeDoPrograma, &arg)==-1)
+								if(execve(filaRR->inicial->nomeDoPrograma, &arg, NULL)==-1)
 									printf("Ocorreu algum erro ao executar %s!\n", filaRR->inicial->nomeDoPrograma);
 								else
-									printf("O programa %s foi escalonado!\n", RTAtual->nomeDoPrograma);
+									printf("O programa %s foi escalonado!\n", filaRR->inicial->nomeDoPrograma);
 							}
 						}
 						RRisExecuting = 1;
