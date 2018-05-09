@@ -415,14 +415,20 @@ int main()
 				
 				if(timeline == timeForNextRT)
 				{
+					printf("1MEU TEMPO É: %d\n",timeline );
+
 					if(PRisExecuting)
 					{
+						printf("MEU PID É: %d\n",filaPR->inicial->pid );
 						kill(filaPR->inicial->pid, SIGSTOP);
+						printf("2MEU TEMPO É: %d\n",timeline );
 						PRisExecuting = 0;
 					}
 					else if(RRisExecuting)
 					{
+						printf("3MEU TEMPO É: %d\n",timeline );
 						kill(filaRR->inicial->pid, SIGSTOP);
+						printf("3MEU TEMPO É: %d\n",timeline );
 						RRisExecuting = 0;
 					}
 
@@ -431,10 +437,12 @@ int main()
 						if(RTAtual->count > 0)
 						{
 							kill(RTAtual->pid, SIGCONT);
+							RTisExecuting = 1;
 							printf("O programa %s foi escalonado!\n", RTAtual->nomeDoPrograma);
 						}
 						else
 						{
+
 							pid = fork();
 							if(pid != 0)
 							{
@@ -442,10 +450,13 @@ int main()
 								if(execve(RTAtual->nomeDoPrograma, NULL, NULL) == -1)
 									printf("Ocorreu algum erro ao executar %s!\n", RTAtual->nomeDoPrograma);
 								else
+								{
+									RTisExecuting = 1;
 									printf("O programa %s foi escalonado!\n", RTAtual->nomeDoPrograma);
+								}
 							}
 						}
-						RTisExecuting = 1;
+						
 						RTAtual->count++;
 					}
 				}
@@ -463,6 +474,7 @@ int main()
 						if(filaPR->inicial->count > 0)
 						{
 							kill(filaPR->inicial->pid, SIGCONT);
+							PRisExecuting = 1;
 							printf("O programa %s foi escalonado!\n", filaPR->inicial->nomeDoPrograma);
 						}
 						else{
@@ -473,10 +485,13 @@ int main()
 								if(execve(filaPR->inicial->nomeDoPrograma, NULL, NULL)==-1)
 									printf("Ocorreu algum erro ao executar %s!\n", filaPR->inicial->nomeDoPrograma);
 								else
+								{
 									printf("O programa %s foi escalonado!\n", filaPR->inicial->nomeDoPrograma);
+									PRisExecuting = 1;
+								}
 							}
 						}
-						PRisExecuting = 1;
+						
 						filaPR->inicial->count++;
 						printf("O programa %s foi escalonado!\n", filaPR->inicial->nomeDoPrograma);
 					} 
@@ -498,6 +513,7 @@ int main()
 						if(filaRR->inicial->count > 0)
 						{
 							kill(filaRR->inicial->pid, SIGCONT);
+							RRisExecuting = 1;
 							printf("O programa %s foi reescalonado!\n", filaRR->inicial->nomeDoPrograma);
 						}
 						else{
@@ -508,10 +524,13 @@ int main()
 								if(execve(filaRR->inicial->nomeDoPrograma, NULL, NULL)==-1)
 									printf("Ocorreu algum erro ao executar %s!\n", filaRR->inicial->nomeDoPrograma);
 								else
+								{
+									RRisExecuting = 1;
 									printf("O programa %s foi escalonado!\n", filaRR->inicial->nomeDoPrograma);
+								}
 							}
 						}
-						RRisExecuting = 1;
+						
 						printf("O programa %s foi escalonado!\n", filaRR->inicial->nomeDoPrograma);
 					} 
 				}
