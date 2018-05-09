@@ -439,7 +439,7 @@ int main()
 							if(pid != 0)
 							{
 								RTAtual->pid = pid;
-								if(execve(RTAtual->nomeDoPrograma, &arg, NULL) == -1)
+								if(execve(RTAtual->nomeDoPrograma, NULL, NULL) == -1)
 									printf("Ocorreu algum erro ao executar %s!\n", RTAtual->nomeDoPrograma);
 								else
 									printf("O programa %s foi escalonado!\n", RTAtual->nomeDoPrograma);
@@ -470,7 +470,7 @@ int main()
 							if(pid != 0)
 							{
 								filaPR->inicial->pid = pid;
-								if(execve(filaPR->inicial->nomeDoPrograma, &arg, NULL)==-1)
+								if(execve(filaPR->inicial->nomeDoPrograma, NULL, NULL)==-1)
 									printf("Ocorreu algum erro ao executar %s!\n", filaPR->inicial->nomeDoPrograma);
 								else
 									printf("O programa %s foi escalonado!\n", filaPR->inicial->nomeDoPrograma);
@@ -505,7 +505,7 @@ int main()
 							if(pid != 0)
 							{
 								filaRR->inicial->pid = pid;
-								if(execve(filaRR->inicial->nomeDoPrograma, &arg, NULL)==-1)
+								if(execve(filaRR->inicial->nomeDoPrograma, NULL, NULL)==-1)
 									printf("Ocorreu algum erro ao executar %s!\n", filaRR->inicial->nomeDoPrograma);
 								else
 									printf("O programa %s foi escalonado!\n", filaRR->inicial->nomeDoPrograma);
