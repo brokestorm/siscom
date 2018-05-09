@@ -205,6 +205,7 @@ void removePrimeiro(Fila *p)
 	No* aux = p->inicial;
 	p->inicial = p->inicial->prox;
 
+	p->size--;
 	free(aux);
 }
 
@@ -242,7 +243,7 @@ int equalCompareTime(struct tm *a, struct tm *b)
 	}
 }
 
-int setTime(int sec1, int sec2, struct tm *a)
+void setTime(int sec1, int sec2, struct tm *a)
 {
 	a->tm_year = 0;
 	a->tm_mon = 0;
@@ -426,31 +427,31 @@ int main()
 			if(timeBuffer != tm->tm_sec)
 			{
 				timeBuffer = tm->tm_sec;
-				if(filaRT != NULL){ // NEEDS OTHER CONDITIONS!!!!!!!!
+				if(filaRT->size != 0){ // NEEDS OTHER CONDITIONS!!!!!!!!
 			//		pid = fork();
 			//		if(pid != 0)
 			//		{
-			//			filaRT->pid = pid;
-			//			//execv(filaRT->nomeDoPrograma, &arg);
+			//			filaRT->inicial->pid = pid;
+			//			//execv(filaRT->inicial->nomeDoPrograma, &arg);
 			//		}
 				}
-				else if(filaPR != NULL)
+				else if(filaPR->size != 0)
 				{	
 					printf("programa vai ser %s executado!\n", filaPR->inicial->nomeDoPrograma);
 					pid = fork();
 					if(pid != 0)
 					{
-						filaPR->pid = pid;
+						filaPR->inicial->pid = pid;
 						execv(filaPR->inicial->nomeDoPrograma, &arg);
 					}
 				} 
-				else if(filaRR != NULL)
+				else if(filaRR->size != 0)
 				{
-					printf("programa vai ser %s executado!\n", filaRR->nomeDoPrograma);
+					printf("programa vai ser %s executado!\n", filaRR->inicial->nomeDoPrograma);
 					pid = fork();
 					if(pid != 0)
 					{
-						filaRR->pid = pid;
+						filaRR->inicial->pid = pid;
 						execv(filaRR->inicial->nomeDoPrograma, &arg);
 					}
 
