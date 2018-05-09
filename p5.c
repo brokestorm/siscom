@@ -1,12 +1,12 @@
 #include <stdio.h>
+#define TAM 1000000
+
 
 int main(){
 	int i;
 	printf("o programa p5 está começando..");
-	for(i = 0; i < 20000; i++){
-		printf("5");
-		if((i / 10) == 0)
-			printf("\n");	
+	for(i = 0; i < TAM; i++){
+		printf("Ola!  %d/%d\n", i, TAM);
 	}
 	printf("o programa p5 está acabando..");
 
