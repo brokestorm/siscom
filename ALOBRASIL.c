@@ -1,4 +1,7 @@
 #include <stdio.h>
+#include <unistd.h>
+#include <sys/wait.h>
+
 #define EVER ;;
 
 int main(){
@@ -6,7 +9,7 @@ int main(){
 	for(EVER){
 		sleep(1);
 		i++;
-		print("O ALOBRASIL já foi executado por %d segundos\n", i);
+		printf("O ALOBRASIL já foi executado por %d segundos\n", i);
 			
 	}
 

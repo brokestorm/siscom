@@ -20,7 +20,6 @@ struct no
 	int segundos;
 	int duracao;
 	int pid;
-	int taVazia;   // Esse elemento é um pouco gambiarrento, ele está aqui apenas para a primeira entrada de elemento
 	
 	struct no *prox;
 

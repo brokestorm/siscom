@@ -1,4 +1,6 @@
 #include <stdio.h>
+#include <unistd.h>
+
 #define EVER ;;
 
 int main(){
@@ -6,7 +8,7 @@ int main(){
 	for(EVER){
 		sleep(1);
 		i++;
-		print("O programa1 já foi executado por %d segundos\n", i);
+		printf("O programa1 já foi executado por %d segundos\n", i);
 			
 	}
 
