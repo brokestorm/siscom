@@ -22,7 +22,7 @@ int main(){
 		if(timeBuffer != tm->tm_sec)
 		{
 			timeBuffer = tm->tm_sec;
-			printf ("Current time: %02d:%02d:%02d, %d/%d\n", tm->tm_hour, tm->tm_min, tm->tm_sec, i, TAM);
+			//printf ("Current time: %02d:%02d:%02d, %d/%d\n", tm->tm_hour, tm->tm_min, tm->tm_sec, i, TAM);
 		}
 	}
 	

@@ -22,7 +22,7 @@ int main(){
 		if(timeBuffer < tm->tm_sec)
 		{
 			timeBuffer = tm->tm_sec;
-			printf("Oi, eu sou o p1! %d/%d\n", i, TAM);
+			//printf("Oi, eu sou o p1! %d/%d\n", i, TAM);
 		}
 	}
 	
