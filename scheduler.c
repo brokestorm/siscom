@@ -11,213 +11,18 @@
 #include <sys/wait.h>
 #include <time.h>
 
+#include "lista.h"
+
 #define EVER ;;
-#define TAM 200
 #define QUANTUM 1
-
-struct no
-{
-	char *nomeDoPrograma;
-	int prioridade;
-	int segundos;
-	int duracao;
-	int pid;
-	int count;
-	
-	struct no *prox;
-
-} typedef No;
-
-
-struct fila
-{
-	No *inicial;
-	No *final;
-	int size;
-} typedef Fila;
-
-
-Fila* criaFila()
-{
-	Fila *p = (Fila*) malloc(sizeof(Fila));
-	if( p == NULL)
-	{
-		return NULL;
-	}
-
-	p->inicial = NULL;
-	p->final = NULL;
-	p->size = 0;
-
-	return p;
-}
-
-
-// Round Robin funciona como uma fila normal, apenas insere no final e remove no primeiro
-int inserirRR(Fila *p, char* nome, int count)
-{
-	No *novo = (No*) malloc(sizeof(No));
-
-	novo->nomeDoPrograma = nome;
-	novo->prox = NULL;
-	novo->count = count;
-
-	// Se a fila está vazia
-	if(p->size == 0)
-	{
-		p->inicial = novo;
-		p->final = novo;
-		p->size++;
-		return 0;
-	}
-	else
-	{
-		p->final = novo;
-		p->size++;
-		return 0;
-	}
-
-	return 1;
-}
-
-// RT vamos modelar como uma fila circular, já que RT cicla pelos processos pra sempre. E é possivel inserir em qualquer lugar da fila
-No* inserirRT(Fila *p, int seg, int dur, char* nome)
-{
-	No *novo = (No *)malloc(sizeof(No));
-	No *b, *aux;
-	int tempoFinalAtual, tempoFinalNovo;
-
-
-	if(seg+dur > 60)
-	{
-		printf("Tempo de duração do processo %s é maior que 60 segundos, ele sera descartado.\n", nome);
-		return NULL;	
-	}
-
-	novo->nomeDoPrograma = nome;
-	novo->segundos = seg;
-	novo->duracao = dur;
-	novo->count = 0;
-	
-	// Se a fila está vazia
-	if(p->size == 0)
-	{
-		novo->prox = novo;
-		p->inicial = novo;
-		p->final = novo;
-		p->size++;
-		return novo;
-	}
-
-	tempoFinalNovo = seg + dur;
-
-	// Se o processo novo roda antes do primeiro da fila
-	if(tempoFinalNovo < p->inicial->segundos) 
-	{
-		novo->prox = p->inicial;
-		p->inicial = novo;
-		p->final->prox = novo;
-		p->size++;
-		return novo;
-	}
-	
-	// Se o processo novo roda depois do ultimo da fila
-	if(novo->segundos > (p->final->segundos + p->final->duracao) )
-	{
-		novo->prox = p->inicial;
-		p->final->prox = novo;
-		p->final = novo;
-		p->size++;
-		return novo;
-	}
-	// Se o processo novo esta no meio da fila
-	for(b = p->inicial->prox; b->prox != p->final; b = b->prox)
-	{
-		tempoFinalAtual = b->segundos + b->duracao;
-	
-		if( (tempoFinalAtual < tempoFinalNovo) && (tempoFinalNovo < b->prox->segundos) )
-		{
-			aux = b->prox;
-			b->prox = novo;
-			novo->prox = aux;
-			p->size++;
-			return novo;
-		}
-	}
-
-	// Caso não tenha conseguido encaixar, é pq ele conflitava com algum processo existente da fila
-	return NULL;
-}
-
-
-// PR é uma fila, onde só removemos o primeiro, porém é possível inserir em qualquer ponto
-int inserirPR(Fila *p, int prio, char* nome)
-{
-	No *novo = (No *)malloc(sizeof(No));
-	No *b, *aux;
-
-	novo->nomeDoPrograma = nome;
-	novo->prioridade = prio;
-
-	// Se a fila está vazia
-	if(p->size == 0)
-	{
-		novo->prox = novo;
-		p->inicial = novo;
-		p->final = novo;
-		p->size++;
-		return 0;
-	}
-
-	// Caso o processo a ser inserido tenha a melhor prioridade de todas
-	if(novo->prioridade < p->inicial->prioridade)
-	{
-		novo->prox = p->inicial;
-		p->inicial = novo;
-		p->size++;
-		return 0;	
-	}
-
-	// Caso o processo a ser inserido tenha a pior prioridade de todas
-	if(novo->prioridade >= p->final->prioridade)
-	{
-		p->final->prox = novo;
-		novo->prox = NULL;
-		p->size++;
-		return 0;
-	}
-
-	// Caso esteja no meio (entre maior e menor prioridades), procura seu lugar na fila
-	for(b = p->inicial; b->prox != p->final; b = b->prox)
-	{
-		if(b->prox->prioridade > novo->prioridade)
-		{
-			aux = b->prox;
-			b->prox = novo;
-			novo->prox = aux;
-			p->size++;
-			return 0;		
-		}
-	}
-
-	
-	// Se tudo der errado...
-	return 1;
-}
-
-void removePrimeiro(Fila *p)
-{
-	No* aux = p->inicial;
-	p->inicial = p->inicial->prox;
-
-	p->size--;
-	free(aux);
-}
-
 
 int main()
 {
-	Fila *filaRR = criaFila(), *filaRT = criaFila(), *filaPR = criaFila();
+	Fila *filaRR = criaFila(); 
+	Fila *filaRT = criaFila();
+	Fila *filaPR = criaFila();
+	
+	int status;
 
 	int i = 0, j = 0, aux = 0;									// auxiliares
 	int s = 0, d = 0, pol = 0;									// parametros para o escalonador
@@ -232,7 +37,6 @@ int main()
 	int *segundos, *duracao, *prioridade, *politica, *pronto;
 	char *nome;
 
-	int iniTime;
 	time_t now;
 	struct tm *tm;
 
@@ -244,8 +48,6 @@ int main()
 	}
 
 	printf ("Tempo de inicio: %04d-%02d-%02d %02d:%02d:%02d\n", tm->tm_year+1900, tm->tm_mon+1, tm->tm_mday, tm->tm_hour, tm->tm_min, tm->tm_sec);
-
-	iniTime = tm->tm_sec;
 
 	shdPrio = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
 	shdS = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
@@ -269,7 +71,7 @@ int main()
 		lista = fopen("exec.txt", "r");
 		if (lista == NULL) // verificando erros
 		{
-			printf("Ocorreu um erro ao abrir o arquivo\n");
+			printf("Interpretador: Ocorreu um erro ao abrir o arquivo\n");
 			exit(1);
 		}
 
@@ -296,6 +98,8 @@ int main()
 				{
 					nome[j] = nomeDoPrograma[j]; // Colacando o nome logo após o diretorio "./"
 				}
+				
+				nome[j] = '\0';
 				
 				*prioridade = prio;
 				*politica = pol; // O valor padrão é ROUND-ROBIN, ou seja, se não identificar nenhuma politica na linha de comando, ele vai passar como ROUND-ROBIN.
@@ -344,7 +148,7 @@ int main()
 	/********** ESCALONADOR **********/
 	else 
 	{	
-		int timeBuffer = tm->tm_sec, pid;
+		int timeBuffer = tm->tm_sec;
 		int timeline = -1;                      // Essa variavel sera usada para olhar em que segundo estamos aos olhos do escalonador (ela vai de 0 a 59)
 		int RTisExecuting = 0;
 		int PRisExecuting = 0;
@@ -352,11 +156,19 @@ int main()
 		int sinceLastPreemp = 0;                // Aqui guardamos quanto tempo tem desde o ultimo quantum/preempção 
 		int timeForNextRT = 60;
 		
+		int shdPid;
+		int *shPid;
+		
 		// Alguns nos auxiliares, para fazermos operações e sabermos quem é o processo atual rodando
 		No *PRAtual = NULL;
 		No *RTAtual = NULL;
 		No *RTAux = NULL;
 		
+		shdPid = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
+		
+		shPid = shmat(shdPid, 0, 0);
+		
+		*shPid = -42; // -42 é um valor aleatório que servira para checar se shPid ja foi preenchido ou nao
 
 		for(EVER)
 		{
@@ -368,15 +180,16 @@ int main()
 			{
 				if(*politica == 0) 			// ROUND-ROBIN
 				{
-					printf("Eu, programa %s, entrei na fila Round robin\n", nome);
-					inserirRR(filaRR, nome, 0);	
+					printf("ESCALONADOR: Eu, programa %s, entrei na fila Round robin\n", nome);
+					inserirRR(filaRR, nome, 0, 0);
 				}
 				else if(*politica == 1) 		// REAL-TIME
 				{
-					printf("Nome: %s - Inicio %d - Duracao %d. Entrei na fila Real Time\n", nome, *segundos, *duracao);
+					
 					RTAux = inserirRT(filaRT, *segundos, *duracao, nome);
 					if(RTAux != NULL)
 					{
+						printf("ESCALONADOR: Eu, programa %s, entrei na fila Real Time\n", nome);
 					 	if(RTAux->segundos >= timeline && RTAux->segundos < timeForNextRT)
 					 	{
 							timeForNextRT = RTAux->segundos;
@@ -387,7 +200,7 @@ int main()
 				}
 				else 					// PRIORIDADE
 				{	
-					printf("Eu, programa %s, entrei na fila Prioridade\n", nome);
+					printf("ESCALONADOR: Eu, programa %s, entrei na fila Prioridade\n", nome);
 					inserirPR(filaPR, *prioridade, nome);
 					
 					if(!PRisExecuting)
@@ -407,6 +220,7 @@ int main()
 				timeline++;
 				if(timeline == 60)
 				{
+					printf("PASSARAM-SE 60 SEG, O CICLO RESETOU\n");
 					timeline = 0;
 				}
 				
@@ -426,7 +240,6 @@ int main()
 				// Se o segundo atual é igual ao segundo de inicio do proximo próximo Real Time
 				if(timeline == timeForNextRT)
 				{
-					printf("Entrei num RT, com inicio em %d, e são %d\n", timeForNextRT, timeline);
 					// Paramos qualquer processo de prioridade
 					if(PRisExecuting)
 					{
@@ -448,29 +261,57 @@ int main()
 						{
 							kill(RTAtual->pid, SIGCONT);
 							RTisExecuting = 1;
-							printf("O programa %s foi reescalonado!\n", RTAtual->nomeDoPrograma);
+							printf("ESCALONADOR: O programa %s (RT) foi reescalonado no tempo %d!\n", RTAtual->nomeDoPrograma, timeline);
 						}
 						// Se essa é a sua primeira vez rodando, damos fork, armazenamos seu pid e damos execv
 						else
 						{
-							pid = fork();
-							if(pid != 0)
+							if(fork() != 0)
 							{
-								RTAtual->pid = pid;
+								printf("ESCALONADOR: O programa %s (RT) foi escalonado no tempo %d!\n", RTAtual->nomeDoPrograma, timeline);
+								*shPid = getpid();
 								if(execve(RTAtual->nomeDoPrograma, NULL, NULL) == -1)
-									printf("Ocorreu algum erro ao executar %s!\n", RTAtual->nomeDoPrograma);
-								else
 								{
-									RTisExecuting = 1;
-									RTAtual->count++;
-									printf("O programa %s foi escalonado!\n", RTAtual->nomeDoPrograma);
+									printf("ESCALONADOR: Ocorreu algum erro ao executar %s (RT)!\n", RTAtual->nomeDoPrograma);
+									*shPid = -1;
 								}
+							}
+							while(*shPid == -42);
+							if(*shPid != -1)
+							{
+								RTAtual->pid = *shPid;
+								*shPid = -42;
+								RTisExecuting = 1;
+								RTAtual->count++;
 							}
 						}
 						
 						
 					}
 				}/***** Fim dos checks para Real Time *****/
+				
+				
+				/* Checando se algum programa de RR ou PR chegou ao seu fim para podermos remove-lo das suas listas */
+				if(PRisExecuting)
+				{
+					if(waitpid(PRAtual->pid, &status, WNOHANG) == PRAtual->pid)
+					{
+						printf("ESCALONADOR: O programa %s (PR) acabou e foi retirado da sua fila\n", PRAtual->nomeDoPrograma);
+						PRAtual = filaPR->inicial;
+						removeMeioPR(filaPR, PRAtual);
+						PRisExecuting = 0;
+					}
+				}
+				
+				if(RRisExecuting)
+				{
+					if(waitpid(filaRR->inicial->pid, &status, WNOHANG) == filaRR->inicial->pid)
+					{
+						printf("ESCALONADOR: O programa %s (RR) acabou e foi retirado da sua fila\n", filaRR->inicial->nomeDoPrograma);
+						removePrimeiro(filaRR);
+						RRisExecuting = 0;
+					}
+				}
 				
 				/***** CHECKS DE PRIORIDADE *****/
 				if(filaPR->size != 0 && !RTisExecuting)
@@ -489,22 +330,27 @@ int main()
 						{
 							kill(PRAtual->pid, SIGCONT);
 							PRisExecuting = 1;
-							printf("O programa %s foi reescalonado!\n", PRAtual->nomeDoPrograma);
+							printf("ESCALONADOR: O programa %s (PR) foi reescalonado no tempo %d!\n", PRAtual->nomeDoPrograma, timeline);
 						}
-						else{
-							pid = fork();
-							if(pid != 0)
+						else
+						{
+							if(fork() != 0)
 							{
-								PRAtual->pid = pid;
-								printf("Entrei em um PR com nome: %s\n", PRAtual->nomeDoPrograma);
+								printf("ESCALONADOR: O programa %s (PR) foi escalonado no tempo %d!\n", PRAtual->nomeDoPrograma, timeline);
+								*shPid = getpid();
 								if(execve(PRAtual->nomeDoPrograma, NULL, NULL)==-1)
-									printf("Ocorreu algum erro ao executar %s!\n", PRAtual->nomeDoPrograma);
-								else
 								{
-									printf("O programa %s foi escalonado!\n", PRAtual->nomeDoPrograma);
-									PRisExecuting = 1;
-									PRAtual->count++;
+									printf("ESCALONADOR: Ocorreu algum erro ao executar %s (PR)!\n", PRAtual->nomeDoPrograma);
+									*shPid = -1;
 								}
+							}
+							while(*shPid == -42);
+							if(*shPid != -1)
+							{
+								PRAtual->pid = *shPid;
+								*shPid = -42;
+								PRisExecuting = 1;
+								PRAtual->count++;
 							}
 						}
 					} 
@@ -517,7 +363,7 @@ int main()
 					if(RRisExecuting && sinceLastPreemp == QUANTUM)
 					{
 						kill(filaRR->inicial->pid, SIGSTOP);
-						inserirRR(filaRR, filaRR->inicial->nomeDoPrograma, ++filaRR->inicial->count);
+						inserirRR(filaRR, filaRR->inicial->nomeDoPrograma, ++filaRR->inicial->count, filaRR->inicial->pid);
 						removePrimeiro(filaRR);
 						sinceLastPreemp = 0;
 						RRisExecuting = 0;
@@ -531,22 +377,28 @@ int main()
 							kill(filaRR->inicial->pid, SIGCONT);
 							RRisExecuting = 1;
 							filaRR->inicial->count++;
-							printf("O programa %s foi reescalonado!\n", filaRR->inicial->nomeDoPrograma);
+							printf("ESCALONADOR: O programa %s (RR) foi reescalonado no tempo %d!\n", filaRR->inicial->nomeDoPrograma, timeline);
 						}
-						else{
-							pid = fork();
-							if(pid != 0)
+						else
+						{
+							if(fork() != 0)
 							{
-								filaRR->inicial->pid = pid;
-								printf("Entrei em um RR com nome: %s\n", filaRR->inicial->nomeDoPrograma);
+								printf("ESCALONADOR: O programa %s (RR) foi escalonado no tempo %d!\n", filaRR->inicial->nomeDoPrograma, timeline);
+								*shPid = getpid();
 								if(execve(filaRR->inicial->nomeDoPrograma, NULL, NULL)==-1)
-									printf("Ocorreu algum erro ao executar %s!\n", filaRR->inicial->nomeDoPrograma);
-								else
 								{
-									RRisExecuting = 1;
-									filaRR->inicial->count++;
-									printf("O programa %s foi escalonado!\n", filaRR->inicial->nomeDoPrograma);
+									printf("ESCALONADOR: Ocorreu algum erro ao executar %s (RR)!\n", filaRR->inicial->nomeDoPrograma);
+									*shPid = -1;
 								}
+								
+							}
+							while(*shPid == -42);
+							if(*shPid != -1)
+							{
+								filaRR->inicial->pid = *shPid;
+								*shPid = -42;
+								RRisExecuting = 1;
+								filaRR->inicial->count++;
 							}
 						}
 					} 
@@ -554,8 +406,14 @@ int main()
 				
 				
 			} // endif(timebuffer)
-		}
-	}
+		
+		} // fim for(EVER)
+		
+		shmdt(shPid);
+		
+		shmctl(shdPid, IPC_RMID, 0);
+	}// Fim do escalonador
+	waitpid(-1, &status, 0);
 	
 	// libera a memória compartilhada do processo
 	shmdt (prioridade); 
